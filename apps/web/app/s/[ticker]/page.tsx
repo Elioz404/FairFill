@@ -9,6 +9,7 @@ import { StockLogo } from "@/components/stock-logo";
 import { SearchBox } from "@/components/search-box";
 import { OrderTicket } from "@/components/stock/order-ticket";
 import { LiveReference, StockLive } from "@/components/stock/stock-live";
+import { TicketJump } from "@/components/stock/ticket-jump";
 import { getEngine } from "@/lib/server";
 
 export async function generateMetadata(props: PageProps<"/s/[ticker]">): Promise<Metadata> {
@@ -64,50 +65,56 @@ export default async function StockPage(props: PageProps<"/s/[ticker]">) {
         <LiveReference initial={tape} />
       </header>
 
-      <div className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,1fr)_400px]">
-        <div className="min-w-0 space-y-10">
+      {/* Small screens: versions, then the ticket, then the facts. Large screens: the ticket rides alongside. */}
+      <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-x-8">
+        <div className="min-w-0 lg:col-start-1 lg:row-start-1">
           <StockLive initial={tape} initialHistory={history} />
-
-          <section>
-            <h2 className="text-lg font-semibold tracking-tight">What actually differs</h2>
-            <div className="panel mt-4 overflow-x-auto">
-              <table className="w-full min-w-[640px] text-left text-sm">
-                <thead>
-                  <tr className="border-b border-line text-[11px] uppercase tracking-[0.1em] text-fg-muted">
-                    <th className="px-4 py-3 font-medium">Issuer</th>
-                    <th className="px-4 py-3 font-medium">How it trades</th>
-                    <th className="px-4 py-3 font-medium">When</th>
-                    <th className="px-4 py-3 font-medium">Watch out for</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {listing.versions.map((v) => {
-                    const info = ISSUERS[v.issuer];
-                    return (
-                      <tr key={v.address} className="border-b border-line/70 align-top last:border-0">
-                        <td className="px-4 py-3.5">
-                          <span className="flex items-center gap-2 font-medium">
-                            <IssuerMark issuer={v.issuer} /> {info.label}
-                          </span>
-                          <span className="num text-xs text-fg-muted">{v.symbol}</span>
-                        </td>
-                        <td className="px-4 py-3.5 text-fg-soft">{info.executionLabel}</td>
-                        <td className="px-4 py-3.5 text-fg-soft">{info.hours}</td>
-                        <td className="px-4 py-3.5 text-xs leading-relaxed text-fg-muted">{info.notes.join(" · ")}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <p className="mt-3 text-xs text-fg-muted">Execution facts from the Binance Web3 API Trading API documentation.</p>
-          </section>
         </div>
 
-        <aside className="min-w-0 lg:sticky lg:top-24 lg:self-start">
+        <aside
+          aria-label="Order ticket"
+          className="min-w-0 lg:sticky lg:top-24 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:max-h-[calc(100dvh-7rem)] lg:self-start lg:overflow-y-auto lg:overscroll-contain lg:rounded-2xl [scrollbar-width:thin]"
+        >
           <OrderTicket ticker={listing.ticker} name={listing.name} issuers={listing.versions.map((v) => v.issuer)} mode={tape.mode} />
         </aside>
+
+        <section className="min-w-0 lg:col-start-1 lg:row-start-2">
+          <h2 className="text-lg font-semibold tracking-tight">What actually differs</h2>
+          <div className="panel mt-4 overflow-x-auto">
+            <table className="w-full min-w-[640px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-line text-[11px] uppercase tracking-[0.1em] text-fg-muted">
+                  <th className="px-4 py-3 font-medium">Issuer</th>
+                  <th className="px-4 py-3 font-medium">How it trades</th>
+                  <th className="px-4 py-3 font-medium">When</th>
+                  <th className="px-4 py-3 font-medium">Watch out for</th>
+                </tr>
+              </thead>
+              <tbody>
+                {listing.versions.map((v) => {
+                  const info = ISSUERS[v.issuer];
+                  return (
+                    <tr key={v.address} className="border-b border-line/70 align-top last:border-0">
+                      <td className="px-4 py-3.5">
+                        <span className="flex items-center gap-2 font-medium">
+                          <IssuerMark issuer={v.issuer} /> {info.label}
+                        </span>
+                        <span className="num text-xs text-fg-muted">{v.symbol}</span>
+                      </td>
+                      <td className="px-4 py-3.5 text-fg-soft">{info.executionLabel}</td>
+                      <td className="px-4 py-3.5 text-fg-soft">{info.hours}</td>
+                      <td className="px-4 py-3.5 text-xs leading-relaxed text-fg-muted">{info.notes.join(" · ")}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-3 text-xs text-fg-muted">Execution facts from the Binance Web3 API Trading API documentation.</p>
+        </section>
       </div>
+
+      <TicketJump label={`Find the fair fill for ${listing.ticker}`} />
     </div>
   );
 }

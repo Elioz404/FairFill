@@ -34,7 +34,7 @@ export function ExecutePanel({ decision, receipt, mode, wallet }: { decision: Ro
   ].join("\n");
 
   return (
-    <div className="rounded-2xl border border-line bg-ink-900/80 p-4">
+    <div>
       <div role="tablist" aria-label="Execution method" className="grid grid-cols-2 gap-1 rounded-xl bg-ink-800 p-1">
         {[
           { id: "agent" as const, label: "Agentic Wallet", icon: Bot },
