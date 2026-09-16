@@ -41,6 +41,8 @@ export interface StockListing {
   ticker: string;
   name: string | null;
   versions: StockVersion[];
+  /** Token logo URL from the RWA Data API (live mode only), Ondo's preferred. */
+  logoUrl?: string | null;
 }
 
 export interface VenueMarket {

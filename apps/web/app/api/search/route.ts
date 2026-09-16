@@ -8,6 +8,7 @@ export async function GET(request: Request) {
       results: results.map((l) => ({
         ticker: l.ticker,
         name: l.name,
+        logoUrl: l.logoUrl ?? null,
         issuers: l.versions.map((v) => v.issuer),
       })),
     });

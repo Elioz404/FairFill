@@ -110,8 +110,13 @@ export class FairFillEngine {
       if (version) upsert(version, token.underlyingName || null);
     }
     for (const listing of listings.values()) {
-      const liveName = liveTokens?.find((t) => t.underlyingTicker === listing.ticker && t.underlyingName)?.underlyingName;
+      const liveTokensForTicker = liveTokens?.filter((t) => t.underlyingTicker === listing.ticker) ?? [];
+      const liveName = liveTokensForTicker.find((t) => t.underlyingName)?.underlyingName;
       listing.name = liveName ?? listing.name ?? COMPANY_NAMES[listing.ticker] ?? null;
+      const liveLogo =
+        liveTokensForTicker.find((t) => t.platformId === "ondo" && t.tokenLogoUrl)?.tokenLogoUrl ??
+        liveTokensForTicker.find((t) => t.tokenLogoUrl)?.tokenLogoUrl;
+      if (liveLogo) listing.logoUrl = liveLogo;
       listing.versions.sort((a, b) => ISSUER_ORDER.indexOf(a.issuer) - ISSUER_ORDER.indexOf(b.issuer));
     }
     if (listings.size === 0) throw new Error("Could not load the tokenized stock catalog from any source.");
