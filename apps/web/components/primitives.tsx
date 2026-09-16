@@ -1,4 +1,4 @@
-import { ISSUERS, type DataMode, type IssuerId, type VenueAssessment } from "@fairfill/core/shared";
+import { ISSUERS, type IssuerId, type VenueAssessment } from "@fairfill/core/shared";
 import clsx from "clsx";
 import type { ReactNode } from "react";
 
@@ -40,21 +40,6 @@ export type StampTone = "gold" | "neutral" | "muted";
 export function Stamp({ tone, children }: { tone: StampTone; children: ReactNode }) {
   const color = { gold: "text-gold", neutral: "text-fg-soft", muted: "text-fg-muted" }[tone];
   return <span className={clsx("stamp", color)}>{children}</span>;
-}
-
-export function ModeBadge({ mode }: { mode: DataMode }) {
-  return mode === "live" ? (
-    <span className="inline-flex items-center gap-1.5 rounded-md border border-gold/40 px-2 py-0.5 text-[10px] font-semibold tracking-[0.12em] text-gold">
-      <span className="size-1.5 rounded-full bg-gold animate-pulse-dot" /> LIVE
-    </span>
-  ) : (
-    <span
-      title="No Binance Web3 API keys configured: keyless public data, indicative prices, no execution."
-      className="inline-flex items-center rounded-md border border-line-strong px-2 py-0.5 text-[10px] font-semibold tracking-[0.12em] text-fg-muted"
-    >
-      PREVIEW
-    </span>
-  );
 }
 
 /** Diverging bar around the fair reference. Left of center = below reference, right = above. */

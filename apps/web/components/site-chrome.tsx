@@ -1,7 +1,7 @@
 import type { DataMode, SessionInfo } from "@fairfill/core/shared";
 import Link from "next/link";
 import { Wordmark } from "./logo";
-import { ModeBadge } from "./primitives";
+import { ModeBadge } from "./mode-badge";
 import { SessionPill } from "./session";
 
 const NAV = [
