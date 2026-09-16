@@ -35,18 +35,6 @@ export function IssuerChip({ issuer, muted = false }: { issuer: IssuerId; muted?
   );
 }
 
-export function Monogram({ ticker, size = "md" }: { ticker: string; size?: "sm" | "md" | "lg" }) {
-  const dims = { sm: "size-8 text-[10px]", md: "size-11 text-xs", lg: "size-14 text-sm" }[size];
-  return (
-    <span
-      aria-hidden
-      className={clsx("num grid shrink-0 place-items-center rounded-lg border border-line-strong bg-ink-750 font-semibold text-fg-soft", dims)}
-    >
-      {ticker.slice(0, 4)}
-    </span>
-  );
-}
-
 export type StampTone = "gold" | "neutral" | "muted";
 
 export function Stamp({ tone, children }: { tone: StampTone; children: ReactNode }) {

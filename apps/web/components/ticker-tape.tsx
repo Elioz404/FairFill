@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { BoardRow } from "@/lib/board";
 import { Delta, usePoll } from "./live";
 import { IssuerMark } from "./primitives";
+import { StockLogo } from "./stock-logo";
 
 /** Scrolling strip: reference price, 24h move and fair venue per ticker. Refreshes with the board. */
 export function TickerTape({ initial }: { initial: { rows: BoardRow[]; session: SessionInfo; fetchedAt: number } }) {
@@ -16,6 +17,7 @@ export function TickerTape({ initial }: { initial: { rows: BoardRow[]; session: 
     <ul className="flex shrink-0 items-center gap-9 pr-9" aria-hidden={key === "b"}>
       {items.map(({ row, best }) => (
         <li key={`${key}-${row.snapshot.listing.ticker}`} className="flex items-center gap-2.5 whitespace-nowrap text-xs">
+          <StockLogo ticker={row.snapshot.listing.ticker} logoUrl={row.snapshot.listing.logoUrl} size="xs" />
           <Link href={`/s/${row.snapshot.listing.ticker}`} tabIndex={key === "b" ? -1 : 0} className="num font-semibold text-fg hover:text-gold">
             {row.snapshot.listing.ticker}
           </Link>

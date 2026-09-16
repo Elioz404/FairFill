@@ -4,7 +4,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import { IssuerMark, Monogram } from "@/components/primitives";
+import { IssuerMark } from "@/components/primitives";
+import { StockLogo } from "@/components/stock-logo";
 import { SearchBox } from "@/components/search-box";
 import { OrderTicket } from "@/components/stock/order-ticket";
 import { LiveReference, StockLive } from "@/components/stock/stock-live";
@@ -44,7 +45,7 @@ export default async function StockPage(props: PageProps<"/s/[ticker]">) {
 
       <header className="mt-8 flex flex-wrap items-end justify-between gap-8">
         <div className="flex items-center gap-4">
-          <Monogram ticker={listing.ticker} size="lg" />
+          <StockLogo ticker={listing.ticker} logoUrl={listing.logoUrl} size="lg" />
           <div>
             <p className="eyebrow">
               {assetType ? (ASSET_TYPE[assetType] ?? "Asset") : "Asset"} · {listing.versions.length} version{listing.versions.length > 1 ? "s" : ""} on BSC

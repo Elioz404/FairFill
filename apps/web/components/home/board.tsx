@@ -4,12 +4,13 @@ import { ISSUERS, ISSUER_ORDER, fmtBps, fmtCompactUsd, fmtUsd, rankVenues, type 
 import clsx from "clsx";
 import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import type { BoardRow } from "@/lib/board";
 import { Sparkline } from "../charts";
 import { AnimatedNumber, Delta, RefreshIndicator, usePoll } from "../live";
-import { IssuerMark, Monogram } from "../primitives";
+import { IssuerMark } from "../primitives";
 import { SessionClock } from "../session";
+import { StockLogo } from "../stock-logo";
 
 const BOARD_MS = 20_000;
 
@@ -93,7 +94,7 @@ export function TapeDashboard({ initial }: { initial: BoardPayload }) {
                     <tr key={snap.listing.ticker} className="group border-b border-line/70 transition-colors last:border-0 hover:bg-ink-750/60">
                       <td className="px-4 py-3.5">
                         <Link href={`/s/${snap.listing.ticker}`} className="flex items-center gap-3">
-                          <Monogram ticker={snap.listing.ticker} size="sm" />
+                          <StockLogo ticker={snap.listing.ticker} logoUrl={snap.listing.logoUrl} size="sm" />
                           <span>
                             <span className="block font-medium text-fg">{snap.listing.name ?? snap.listing.ticker}</span>
                             <span className="num text-xs text-fg-muted">{snap.listing.ticker}</span>
@@ -203,8 +204,11 @@ function GapChart({ items }: { items: Item[] }) {
       </p>
       <ul className="mt-6 space-y-2.5">
         {bars.map((b, index) => (
-          <li key={b.row.snapshot.listing.ticker} className="group grid grid-cols-[44px_minmax(0,1fr)_48px] items-center gap-3 text-xs" title={`${b.row.snapshot.listing.ticker}: ${Math.round(b.gap as number)} bps`}>
-            <span className="num text-fg-soft">{b.row.snapshot.listing.ticker}</span>
+          <li key={b.row.snapshot.listing.ticker} className="group grid grid-cols-[4.5rem_minmax(0,1fr)_2.5rem] items-center gap-3 text-xs" title={`${b.row.snapshot.listing.ticker}: ${Math.round(b.gap as number)} bps`}>
+            <span className="flex items-center gap-2">
+              <StockLogo ticker={b.row.snapshot.listing.ticker} logoUrl={b.row.snapshot.listing.logoUrl} size="xs" />
+              <span className="num text-fg-soft">{b.row.snapshot.listing.ticker}</span>
+            </span>
             <span className="h-3 rounded-r-[4px] bg-ink-750">
               <span
                 className={clsx("block h-3 rounded-r-[4px] transition-all duration-700", index === 0 ? "bg-gold" : "bg-series-dim group-hover:bg-series-context")}
@@ -240,45 +244,52 @@ function StaleMatrix({ items }: { items: Item[] }) {
           {fmtCompactUsd(worst.s.market.onchainVolume24hUsd)} traded in 24h.
         </p>
       ) : null}
-      <div className="mt-5 overflow-x-auto">
-        <table className="text-[10px]">
-          <thead>
-            <tr>
-              <th />
-              {items.map((i) => (
-                <th key={i.row.snapshot.listing.ticker} className="num px-0.5 pb-1.5 font-normal text-fg-muted">
-                  <span className="block w-6 truncate text-center">{i.row.snapshot.listing.ticker.slice(0, 4)}</span>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {ISSUER_ORDER.map((issuer) => (
-              <tr key={issuer}>
-                <th className="pr-2 text-left font-normal text-fg-muted">{ISSUERS[issuer].label}</th>
-                {items.map((i) => {
-                  const v = i.row.snapshot.venues.find((x) => x.version.issuer === issuer);
-                  const state = !v ? "none" : v.version.address === i.best?.version.address ? "fair" : v.excluded?.code === "NO_LIQUIDITY" ? "stale" : v.excluded ? "closed" : "ok";
-                  return (
-                    <td key={i.row.snapshot.listing.ticker} className="p-0.5">
-                      <span
-                        title={`${i.row.snapshot.listing.ticker} · ${ISSUERS[issuer].label}: ${state}`}
-                        className={clsx(
-                          "block size-6 rounded-[4px]",
-                          state === "fair" && "bg-gold",
-                          state === "ok" && "bg-series-dim",
-                          state === "stale" && "border border-dashed border-fg-muted",
-                          state === "closed" && "border border-line-strong",
-                          state === "none" && "bg-ink-850",
-                        )}
-                      />
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* Fluid grid: columns shrink with the card, so it never scrolls sideways. */}
+      <div
+        role="table"
+        aria-label="Tradability of each version"
+        className="mt-5 grid items-center gap-x-1 gap-y-1.5"
+        style={{ gridTemplateColumns: `4.25rem repeat(${items.length}, minmax(0, 1fr))` }}
+      >
+        {/* The corner cell must stay in the grid flow, so only its text is visually hidden. */}
+        <span role="columnheader">
+          <span className="sr-only">Issuer</span>
+        </span>
+        {items.map((i) => (
+          <span key={i.row.snapshot.listing.ticker} role="columnheader" className="flex justify-center" title={i.row.snapshot.listing.name ?? i.row.snapshot.listing.ticker}>
+            <StockLogo ticker={i.row.snapshot.listing.ticker} logoUrl={i.row.snapshot.listing.logoUrl} size="xs" className="size-auto! aspect-square w-full max-w-6" />
+            <span className="sr-only">{i.row.snapshot.listing.ticker}</span>
+          </span>
+        ))}
+        {ISSUER_ORDER.map((issuer) => (
+          <Fragment key={issuer}>
+            <span role="rowheader" className="flex min-w-0 items-center gap-1.5 text-[11px] text-fg-muted">
+              <IssuerMark issuer={issuer} size={8} />
+              <span className="truncate">{ISSUERS[issuer].label}</span>
+            </span>
+            {items.map((i) => {
+              const v = i.row.snapshot.venues.find((x) => x.version.issuer === issuer);
+              const state = !v ? "none" : v.version.address === i.best?.version.address ? "fair" : v.excluded?.code === "NO_LIQUIDITY" ? "stale" : v.excluded ? "closed" : "ok";
+              const label = { none: "not listed", fair: "fair venue", stale: "stale price", closed: "closed", ok: "tradable" }[state];
+              return (
+                <span key={i.row.snapshot.listing.ticker} role="cell" className="flex justify-center">
+                  <span
+                    title={`${i.row.snapshot.listing.ticker} · ${ISSUERS[issuer].label}: ${label}`}
+                    aria-label={`${i.row.snapshot.listing.ticker} ${ISSUERS[issuer].label}: ${label}`}
+                    className={clsx(
+                      "block aspect-square w-full max-w-6 rounded-[4px] transition-colors duration-500",
+                      state === "fair" && "bg-gold",
+                      state === "ok" && "bg-series-dim",
+                      state === "stale" && "border border-dashed border-fg-muted",
+                      state === "closed" && "border border-line-strong",
+                      state === "none" && "bg-ink-850",
+                    )}
+                  />
+                </span>
+              );
+            })}
+          </Fragment>
+        ))}
       </div>
       <ul className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] text-fg-muted" aria-label="Legend">
         <li className="flex items-center gap-1.5"><span className="size-3 rounded-[3px] bg-gold" /> Fair venue</li>

@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Sparkline } from "../charts";
 import { AnimatedNumber, RefreshIndicator, usePoll } from "../live";
 import { BpsBar, IssuerMark, Stamp, verdictOf } from "../primitives";
+import { StockLogo } from "../stock-logo";
 
 const TICKERS = ["AAPL", "NVDA", "TSLA", "COIN"];
 const TAPE_MS = 15_000;
@@ -53,11 +54,14 @@ export function LiveSplit({ initial, initialHistory }: { initial: TapeSnapshot; 
 
       <div className={clsx("transition-opacity", loading && "opacity-50")}>
         <div className="mt-5 flex items-end justify-between gap-4">
-          <div>
-            <p className="text-lg font-semibold tracking-tight">{snapshot.listing.name ?? snapshot.listing.ticker}</p>
-            <p className="text-xs text-fg-muted">
-              {snapshot.benchmark.source === "us-market" ? "US market reference" : "On-chain consensus reference"}
-            </p>
+          <div className="flex min-w-0 items-center gap-3">
+            <StockLogo ticker={snapshot.listing.ticker} logoUrl={snapshot.listing.logoUrl} size="md" />
+            <div className="min-w-0">
+              <p className="truncate text-lg font-semibold tracking-tight">{snapshot.listing.name ?? snapshot.listing.ticker}</p>
+              <p className="text-xs text-fg-muted">
+                {snapshot.benchmark.source === "us-market" ? "US market reference" : "On-chain consensus reference"}
+              </p>
+            </div>
           </div>
           <AnimatedNumber value={snapshot.benchmark.priceUsd} format={fmtUsd} className="figure text-3xl" />
         </div>

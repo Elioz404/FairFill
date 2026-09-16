@@ -6,10 +6,12 @@ import { ArrowRight, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { IssuerMark } from "./primitives";
+import { StockLogo } from "./stock-logo";
 
 interface Result {
   ticker: string;
   name: string | null;
+  logoUrl: string | null;
   issuers: IssuerId[];
 }
 
@@ -132,6 +134,7 @@ export function SearchBox({ size = "lg", autoFocus = false }: { size?: "lg" | "s
               )}
             >
               <span className="flex min-w-0 items-center gap-3">
+                <StockLogo ticker={r.ticker} logoUrl={r.logoUrl} size="xs" />
                 <span className="num w-14 shrink-0 text-sm font-semibold text-fg">{r.ticker}</span>
                 <span className="truncate text-sm text-fg-muted">{r.name ?? "—"}</span>
               </span>
