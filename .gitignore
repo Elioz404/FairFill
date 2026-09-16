@@ -1,0 +1,20 @@
+node_modules/
+.next/
+out/
+dist/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# secrets
+.env
+.env.*
+!.env.example
+
+# local DX journal (raw request logs)
+.dx-journal/
+
+# agent studio workspace secrets
+.studio/
+
+.DS_Store

@@ -1,0 +1,21 @@
+{
+  "name": "fairfill",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Best execution for tokenized stocks on BNB Chain — picks the fair version (bStocks, Ondo, xStocks) of every US stock.",
+  "license": "MIT",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @fairfill/web dev",
+    "build": "pnpm --filter @fairfill/web build",
+    "start": "pnpm --filter @fairfill/web start",
+    "test": "pnpm --filter @fairfill/core test",
+    "typecheck": "pnpm -r typecheck",
+    "smoke": "pnpm --filter @fairfill/core smoke",
+    "mcp": "pnpm -s --filter @fairfill/mcp start",
+    "tape": "node prototype/tape.mjs"
+  }
+}
