@@ -1,0 +1,21 @@
+{
+  "name": "@fairfill/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./shared": "./src/shared/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json",
+    "smoke": "tsx --env-file-if-exists=../../.env scripts/smoke.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.3",
+    "tsx": "^4.23.13",
+    "typescript": "5.9.3",
+    "vitest": "^5.0.1"
+  }
+}
