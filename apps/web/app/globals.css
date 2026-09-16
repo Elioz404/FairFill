@@ -1,0 +1,187 @@
+@import "tailwindcss";
+
+/*
+ * FairFill design tokens — aligned with the BNB Chain brand guidelines:
+ * yellow #F0B90B, black #0B0E11, white, plus the grays and surfaces used on bnbchain.org.
+ * One accent only. Issuers are told apart by shape and line style, never by hue.
+ * `static` keeps every token emitted even when it is only read from inline styles.
+ */
+@theme static {
+  --color-ink-950: #0b0e11;
+  --color-ink-900: #0f1115;
+  --color-ink-850: #14151a;
+  --color-ink-800: #181a1e;
+  --color-ink-750: #1e2026;
+  --color-ink-700: #272a31;
+  --color-line: #23262d;
+  --color-line-strong: #33363f;
+
+  --color-fg: #f7f7f8;
+  --color-fg-soft: #c4c5cb;
+  --color-fg-muted: #8c8f9b;
+  --color-fg-faint: #5e6270;
+
+  --color-gold: #f0b90b;
+  --color-gold-bright: #f8d33a;
+  --color-gold-deep: #b98c07;
+
+  /* Chart marks (validated with the dataviz script against #14151a). */
+  --color-series-context: #c4c5cb;
+  --color-series-dim: #6e7280;
+
+  /* Reserved for genuine errors only. */
+  --color-danger: #e5595e;
+
+  --color-paper: #f7f7f8;
+  --color-paper-edge: #dcdde1;
+  --color-paper-ink: #0b0e11;
+  --color-paper-muted: #6b6f7b;
+
+  --font-sans: var(--font-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --animate-tape: tape 70s linear infinite;
+  --animate-pulse-dot: pulse-dot 2.4s ease-in-out infinite;
+  --animate-rise: rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-flash: flash 1.2s ease-out;
+
+  @keyframes tape {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+  @keyframes pulse-dot {
+    0%, 100% { box-shadow: 0 0 0 0 rgb(240 185 11 / 0.45); }
+    50% { box-shadow: 0 0 0 5px rgb(240 185 11 / 0); }
+  }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes flash {
+    from { background-color: rgb(240 185 11 / 0.16); }
+    to { background-color: transparent; }
+  }
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  html {
+    background: var(--color-ink-950);
+  }
+  body {
+    background-color: var(--color-ink-950);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  ::selection {
+    background: rgb(240 185 11 / 0.3);
+    color: var(--color-fg);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-gold);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* Quiet page backdrop: a single soft yellow glow and a faint grid. */
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(56rem 26rem at 18% -12%, rgb(240 185 11 / 0.07), transparent 70%),
+      linear-gradient(to right, rgb(35 38 45 / 0.45) 1px, transparent 1px) 0 0 / 64px 64px,
+      linear-gradient(to bottom, rgb(35 38 45 / 0.45) 1px, transparent 1px) 0 0 / 64px 64px;
+    mask-image: linear-gradient(to bottom, black 0%, rgb(0 0 0 / 0.3) 40%, transparent 80%);
+  }
+
+  .panel {
+    border: 1px solid var(--color-line);
+    background: var(--color-ink-800);
+    border-radius: 12px;
+  }
+
+  .eyebrow {
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-fg-muted);
+  }
+
+  .heading {
+    font-weight: 600;
+    letter-spacing: -0.035em;
+    line-height: 1.02;
+  }
+
+  /* Tabular figures for columns and ticks only; large standalone numbers stay proportional. */
+  .num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+
+  .figure {
+    font-weight: 600;
+    letter-spacing: -0.03em;
+  }
+
+  .stamp {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border: 1px solid currentColor;
+    border-radius: 6px;
+    padding: 0.15rem 0.45rem;
+    font-size: 0.64rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .flash {
+    animation: var(--animate-flash);
+  }
+
+  /* Receipt printed on a light slip with a perforated bottom edge. */
+  .receipt {
+    background: var(--color-paper);
+    color: var(--color-paper-ink);
+    border-radius: 8px 8px 0 0;
+    position: relative;
+    box-shadow: 0 30px 60px -30px rgb(0 0 0 / 0.8);
+  }
+  .receipt::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -12px;
+    height: 12px;
+    background:
+      linear-gradient(-45deg, transparent 8px, var(--color-paper) 0) 0 0 / 16px 12px repeat-x,
+      linear-gradient(45deg, transparent 8px, var(--color-paper) 0) 0 0 / 16px 12px repeat-x;
+  }
+  .receipt-rule {
+    border-top: 1.5px dashed var(--color-paper-edge);
+  }
+
+  .tape-mask {
+    mask-image: linear-gradient(to right, transparent, black 6%, black 94%, transparent);
+  }
+}
