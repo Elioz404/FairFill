@@ -12,10 +12,12 @@ export { X402Gate, encodeHeader, decodeHeader, sameJson, type PaymentRequired, t
 import { loadConfig } from "./config";
 import { FairFillEngine } from "./engine";
 
-let singleton: FairFillEngine | null = null;
+// Next.js can load this module more than once per process (pages and route handlers are bundled
+// separately), so the instance lives on globalThis: one cache, one journal, one rate limiter.
+const holder = globalThis as typeof globalThis & { __fairfillEngine?: FairFillEngine };
 
-/** One engine per process so caches and the DX journal are shared. */
+/** One engine per process so caches, the DX journal and request pacing are shared. */
 export function getEngine(): FairFillEngine {
-  singleton ??= new FairFillEngine(loadConfig());
-  return singleton;
+  holder.__fairfillEngine ??= new FairFillEngine(loadConfig());
+  return holder.__fairfillEngine;
 }

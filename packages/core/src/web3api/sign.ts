@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 
 // Docs: https://web3.binance.com/en/dev-docs/authentication
 export const WEB3_HOST = "https://web3.binance.com";
@@ -41,6 +41,8 @@ export function signRequest(opts: {
   body?: string;
   timestamp?: string;
   recvWindowMs?: number;
+  /** Anti-replay id. Without it the gateway uses the signature, so identical concurrent calls collide (40103). */
+  nonce?: string;
 }): SignedRequest {
   const qs = buildQuery(opts.query);
   const requestPath = `${BUILD_PREFIX}${opts.path}${qs ? `?${qs}` : ""}`;
@@ -51,6 +53,7 @@ export function signRequest(opts: {
     "X-OC-APIKEY": opts.apiKey,
     "X-OC-TIMESTAMP": timestamp,
     "X-OC-SIGN": signature,
+    "X-OC-NONCE": opts.nonce ?? randomUUID(),
   };
   if (opts.recvWindowMs) headers["X-OC-RECV-WINDOW"] = String(opts.recvWindowMs);
   if (opts.method === "POST") headers["Content-Type"] = "application/json";

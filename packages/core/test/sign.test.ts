@@ -27,6 +27,11 @@ describe("request signing", () => {
     expect(signed.url).toBe("https://web3.binance.com/build/api/v1/dex/market/rwa/search?keyword=NVIDIA%20Corp&platformId=ondo");
     expect(signed.headers["X-OC-SIGN"]).toBe("54HZkrnZ9uexT4JGTlNCV4Jk7dnyml7nJR8Gqo3cCKA=");
     expect(signed.headers["X-OC-TIMESTAMP"]).toBe(TS);
+    // A fresh nonce per request keeps identical concurrent calls from being treated as replays.
+    expect(signed.headers["X-OC-NONCE"]).toMatch(/^[0-9a-f-]{36}$/);
+    expect(signRequest({ apiKey: "key", secretKey: "secret", method: "GET", path: "/x", timestamp: TS }).headers["X-OC-NONCE"]).not.toBe(
+      signed.headers["X-OC-NONCE"],
+    );
     expect(signed.body).toBeUndefined();
   });
 

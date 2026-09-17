@@ -27,8 +27,11 @@ function isSuccess(env: Envelope<unknown>): boolean {
   return env.code === undefined && env.success === true;
 }
 
-/** Gateway answers that mean the keys themselves are unusable, not just one call. */
-const KEY_FAILURES = new Set(["40101", "40102", "40103", "40302"]);
+/**
+ * Gateway answers that mean the keys themselves are unusable, not just one call.
+ * 40103 is left out: it also covers a single replayed request.
+ */
+const KEY_FAILURES = new Set(["40101", "40102", "40302"]);
 
 export interface KeyIssue {
   code: number | string | null;
@@ -44,6 +47,8 @@ export interface ClientOptions {
   fetchImpl?: typeof fetch;
   /** Called with the failure when the gateway rejects the keys, and with null after any successful call. */
   onKeyStatus?: (issue: KeyIssue | null) => void;
+  /** Requests started per endpoint per second. The gateway allows 5 (X-OC-RateLimit-Limit); keep headroom. */
+  perEndpointRps?: number;
 }
 
 export interface CallOptions {
@@ -55,6 +60,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export class Web3ApiClient {
   private readonly fetchImpl: typeof fetch;
+  private readonly starts = new Map<string, number[]>();
 
   constructor(private readonly opts: ClientOptions) {
     this.fetchImpl = opts.fetchImpl ?? fetch;
@@ -78,6 +84,7 @@ export class Web3ApiClient {
     const attempts = call.idempotent ? 3 : 1;
     let lastError: unknown;
     for (let attempt = 1; attempt <= attempts; attempt++) {
+      await this.slot(path);
       // Re-sign every attempt: the timestamp and anti-replay nonce must be fresh.
       const signed = signRequest({ apiKey: this.opts.apiKey, secretKey: this.opts.secretKey, method, path, query, body });
       const started = Date.now();
@@ -125,6 +132,21 @@ export class Web3ApiClient {
       }
     }
     throw lastError;
+  }
+
+  /** Waits until this endpoint has room in its one-second window, so bursts queue instead of hitting 42900. */
+  private async slot(path: string): Promise<void> {
+    const limit = this.opts.perEndpointRps ?? 4;
+    for (;;) {
+      const now = Date.now();
+      const recent = (this.starts.get(path) ?? []).filter((t) => now - t < 1_000);
+      if (recent.length < limit) {
+        recent.push(now);
+        this.starts.set(path, recent);
+        return;
+      }
+      await sleep(1_000 - (now - (recent[0] as number)) + 10);
+    }
   }
 
   private log(method: string, endpoint: string, started: number, httpStatus: number | null, code: number | string | null, message: string | null, ok: boolean) {
