@@ -79,7 +79,7 @@ export function StockLive({ initial, initialHistory }: { initial: TapeSnapshot; 
               Per-share price by version
             </h2>
             <p className="mt-1 text-xs text-fg-muted">
-              Last traded price carried forward. A flat line means nobody traded that version.{" "}
+              Last traded price carried forward, New York time. A flat line means nobody traded that version.{" "}
               {chartData ? `Source: ${chartData.source === "web3-api" ? "Binance Web3 Market API candles" : "Binance public K-line feed"}.` : null}
             </p>
           </div>

@@ -102,12 +102,24 @@ function useWidth<T extends HTMLElement>() {
   return { ref, width };
 }
 
+// A fixed zone keeps server and browser output identical (hydration), and New York time is the
+// natural clock for US stocks.
+const MARKET_TZ = "America/New_York";
+
 const timeFormat = (range: PriceHistory["range"]) =>
   range === "1d"
-    ? new Intl.DateTimeFormat("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
-    : new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
+    ? new Intl.DateTimeFormat("en-US", { timeZone: MARKET_TZ, hour: "2-digit", minute: "2-digit", hour12: false })
+    : new Intl.DateTimeFormat("en-US", { timeZone: MARKET_TZ, month: "short", day: "numeric" });
 
-const tooltipTime = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
+const tooltipTime = new Intl.DateTimeFormat("en-US", {
+  timeZone: MARKET_TZ,
+  month: "short",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+  timeZoneName: "short",
+});
 
 /**
  * Per-share price of every version over time. Emphasis form: the fair venue in yellow,
