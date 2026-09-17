@@ -42,7 +42,7 @@ Reproduce with `node prototype/tape.mjs NVDA COIN`.
   1. Understand      RWA Data · search / catalog        → AAPLB, AAPLon, AAPLx
   2. Check sessions  RWA Data · underlying-market        → open? halted? corporate action?
   3. Quote them all  Trading API · quote (SWAP + RFQ)    → same size, same stablecoin (USDT)
-  4. Normalize       RWA Data · price, Market · price-info → per share, share ratio, network fee, fair reference
+  4. Normalize       RWA Data · tokens, Market · price-info → per share, share ratio, network fee, fair reference
   5. Simulate & fill Transaction API · simulate → Agentic Wallet (baw) or browser wallet (+ RFQ submit)
   6. Receipt         Wallet API · tx detail / RFQ order status → realised cost vs reference and vs alternatives
 ```
@@ -60,8 +60,8 @@ otherwise the median per-share price of the versions that actually trade.
 
 | Module | Endpoints used | Where |
 |---|---|---|
-| RWA Data | `rwa/tokens`, `rwa/price`, `rwa/underlying-market` (app) · `rwa/search`, `rwa/underlying-profile`, `rwa/platforms` (smoke test) | catalog, sessions, prices |
-| Market | `market/price-info` (batch) | liquidity, on-chain volume, holders |
+| RWA Data | `rwa/tokens`, `rwa/underlying-market`, `rwa/platforms` (app) · `rwa/price`, `rwa/search`, `rwa/underlying-profile` (smoke test) | catalog, sessions, prices |
+| Market | `market/price-info` (batched up to 100 tokens), `market/candles` | liquidity, on-chain volume, holders, price history |
 | Trading | `aggregator/quote`, `aggregator/swap`, `aggregator/approve-transaction`, `aggregator/order/submit`, `aggregator/order/{id}` | routing, SWAP + RFQ execution |
 | Transaction | `pre-transaction/simulate` (app) · `pre-transaction/gas-price` (smoke test) | dry-run before signing |
 | Wallet | `post-transaction/transaction-detail-by-txhash` (receipts) · `balance/token-balances-by-address` (smoke test) | receipts, checks |

@@ -3,8 +3,8 @@
 // same US ticker on BSC and flags venues whose price is not executable.
 //
 // Uses only the public endpoints that the official Binance Wallet Skills call
-// (no API key). The real product replaces them with the signed Web3 API
-// (RWA Data + Trading API quotes), which is what the hackathon scores.
+// (no API key). The app itself uses the signed Web3 API instead
+// (RWA Data, Market and Trading API quotes).
 //
 // Usage: node prototype/tape.mjs NVDA TSLA AAPL
 
