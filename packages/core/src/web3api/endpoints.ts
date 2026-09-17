@@ -107,7 +107,23 @@ export interface QuoteRoute {
   executionMode: "SWAP" | "RFQ";
   approveTarget: string | null;
   isBest: boolean;
+  /** Custom-fee echo (null when no fee): fee in feeToken base units, and the amount that reached the DEX. */
+  feeAmount?: string | null;
+  feeToken?: string | null;
+  actualSwapAmount?: string | null;
 }
+
+// Type aliases, not interfaces: they must stay assignable to the client's query-record type.
+export type FeeQuoteParams = {
+  feePercent?: string;
+  feeSource?: "FROM_TOKEN" | "TO_TOKEN";
+};
+
+export type FeeSwapParams = {
+  feePercent?: string;
+  fromTokenReferrerWalletAddress?: string;
+  toTokenReferrerWalletAddress?: string;
+};
 
 export interface SwapResult {
   routerResult: { vendorName: string; fromTokenAmount: string; toTokenAmount: string; tradeFee: string | null; priceImpactPercent: string | null };
@@ -224,7 +240,7 @@ export function web3Api(client: Web3ApiClient) {
       client.get<number[][]>(P.candles, q),
 
     // Trading
-    quote:(q: { binanceChainId: string; amount: string; fromTokenAddress: string; toTokenAddress: string; userWalletAddress?: string }) =>
+    quote: (q: { binanceChainId: string; amount: string; fromTokenAddress: string; toTokenAddress: string; userWalletAddress?: string } & FeeQuoteParams) =>
       client.get<QuoteRoute[]>(P.quote, q),
     swap: (q: {
       binanceChainId: string;
@@ -235,7 +251,7 @@ export function web3Api(client: Web3ApiClient) {
       quoteId: string;
       slippagePercent?: string;
       autoSlippage?: "true";
-    }) => client.get<SwapResult>(P.swap, q),
+    } & FeeSwapParams) => client.get<SwapResult>(P.swap, q),
     approveTx: (q: { binanceChainId: string; tokenContractAddress: string; approveAmount: string; vendor?: string }) =>
       client.get<ApproveTx[]>(P.approve, q),
     submitRfq: (body: { requestId: string; userSignature: string; vendor: string; quoteId: string; signingScheme?: string }) =>

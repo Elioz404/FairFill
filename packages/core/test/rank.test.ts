@@ -52,6 +52,7 @@ const okQuote = (tokensOut: number, extra: Partial<VenueQuote["best"]> = {}): Ve
     networkFeeUsd: 0.02,
     approveTarget: null,
     isBest: true,
+    feeUsd: null,
     ...extra,
   };
   return { ok: true, amountIn: "100000000000000000000", best, routes: [best], quotedAt: Date.now() };

@@ -65,6 +65,8 @@ export interface RouteOption {
   networkFeeUsd: number | null;
   approveTarget: string | null;
   isBest: boolean;
+  /** Integrator fee taken on this route, in USD (USDT). null when no fee applies (always for RFQ). */
+  feeUsd: number | null;
 }
 
 export interface VenueQuote {
@@ -154,6 +156,8 @@ export interface RouteDecision {
   excluded: VenueAssessment[];
   /** How much worse the worst eligible venue is than the best, in bps. */
   spreadBps: number | null;
+  /** Integrator fee configured on this server; applied by the Trading API on AMM routes only. */
+  fee: { percent: number } | null;
   explanation: string[];
   warnings: string[];
 }

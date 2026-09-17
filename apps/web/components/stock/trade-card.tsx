@@ -49,6 +49,13 @@ function quoteLabel(v: VenueAssessment): string {
   return `${v.quote.best.mode === "RFQ" ? "RFQ" : "Swap"} via ${v.quote.best.vendor}`;
 }
 
+/** The fee is already inside the all-in price; this row only makes it visible. */
+function feeLabel(percent: number, v: VenueAssessment): string {
+  const fee = v.quote?.ok ? v.quote.best.feeUsd : null;
+  if (fee !== null && fee > 0) return `${percent}% · ${fmtUsd(fee)}`;
+  return v.quote?.ok && v.quote.best.mode === "RFQ" ? "None on RFQ routes" : "None";
+}
+
 const BENCHMARK_SOURCE: Record<string, string> = {
   "us-market": "US market",
   "onchain-consensus": "on-chain consensus",
@@ -350,6 +357,7 @@ export function TradeCard({
               <Row label="Quote">{quoteLabel(chosen)}</Row>
               {chosen.quote?.ok && chosen.quote.best.priceImpactPct !== null ? <Row label="Price impact">{chosen.quote.best.priceImpactPct.toFixed(2)}%</Row> : null}
               {chosen.quote?.ok ? <Row label="Network fee">{fmtUsd(chosen.quote.best.networkFeeUsd)}</Row> : null}
+              {decision?.fee ? <Row label="FairFill fee">{feeLabel(decision.fee.percent, chosen)}</Row> : null}
               <Row label="Execution">{ISSUERS[chosen.version.issuer].executionLabel}</Row>
               <ul className="space-y-1.5 border-t border-line pt-2">
                 {decision.explanation.map((line) => (
@@ -496,6 +504,7 @@ export function TradeCard({
               <Row label="vs fair reference">{fmtBps(chosen.costBps)}</Row>
               <Row label="Quote">{quoteLabel(chosen)}</Row>
               {chosen.quote?.ok ? <Row label="Network fee">{fmtUsd(chosen.quote.best.networkFeeUsd)}</Row> : null}
+              {decision?.fee ? <Row label="FairFill fee">{feeLabel(decision.fee.percent, chosen)}</Row> : null}
             </div>
 
             <div className="border-t border-line pt-4">

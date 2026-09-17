@@ -35,9 +35,12 @@ export async function GET(request: Request) {
               shares: best.shares,
               executionMode: best.quote && best.quote.ok ? best.quote.best.mode : null,
               vendor: best.quote && best.quote.ok ? best.quote.best.vendor : null,
+              // Integrator fee already included in costBps; null when none applies (RFQ routes never carry one).
+              feeUsd: best.quote && best.quote.ok ? best.quote.best.feeUsd : null,
             }
           : null,
         benchmark: decision.benchmark,
+        fee: decision.fee,
         explanation: decision.explanation,
         warnings: decision.warnings,
         receiptUrl: snapshot ? `${engine.config.baseUrl}/receipt?d=${encodeReceipt(snapshot)}` : null,

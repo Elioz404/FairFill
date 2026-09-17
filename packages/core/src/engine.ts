@@ -32,9 +32,10 @@ import type {
   VenueQuote,
   VenueQuoteError,
 } from "./shared/types";
+import { fmtUsd } from "./shared/format";
 import { fromBaseUnitsNumber, parseNumber, toBaseUnits } from "./shared/units";
 import { Web3ApiClient, Web3ApiError, type KeyIssue } from "./web3api/client";
-import { web3Api, type PriceInfo, type QuoteRoute, type RwaToken, type RwaUnderlyingMarket, type Web3Api } from "./web3api/endpoints";
+import { web3Api, type FeeQuoteParams, type FeeSwapParams, type PriceInfo, type QuoteRoute, type RwaToken, type RwaUnderlyingMarket, type Web3Api } from "./web3api/endpoints";
 
 export class NotConfiguredError extends Error {
   constructor(what: string) {
@@ -478,6 +479,11 @@ export class FairFillEngine {
     const warnings = sessionWarnings(data.session);
     const mode = this.mode;
     const issue = this.keyIssue;
+    const explanation = explainDecision({ side, best, ranked, excluded, benchmark });
+    const feeUsd = best?.quote?.ok ? best.quote.best.feeUsd : null;
+    if (this.config.fee && feeUsd !== null && feeUsd > 0) {
+      explanation.splice(1, 0, `Includes the FairFill fee of ${this.config.fee.percent}% (${fmtUsd(feeUsd)}) on this AMM route; RFQ routes carry no fee.`);
+    }
     if (mode === "preview" && issue) {
       warnings.unshift(
         `The Binance Web3 API rejected this server's keys (${issue.code}: ${issue.message}). Showing indicative public prices; nothing can execute until the keys work.`,
@@ -506,7 +512,8 @@ export class FairFillEngine {
       ranked,
       excluded,
       spreadBps: costs.length > 1 ? Math.max(...costs) - Math.min(...costs) : null,
-      explanation: explainDecision({ side, best, ranked, excluded, benchmark }),
+      fee: this.config.fee ? { percent: Number(this.config.fee.percent) } : null,
+      explanation,
       warnings,
     };
   }
@@ -515,6 +522,23 @@ export class FairFillEngine {
     return side === "buy"
       ? { from: QUOTE_TOKEN.address, to: version.address, amountIn: toBaseUnits(amount, QUOTE_TOKEN.decimals) }
       : { from: version.address, to: QUOTE_TOKEN.address, amountIn: toBaseUnits(amount, version.decimals) };
+  }
+
+  /**
+   * The fee is always taken in USDT: from the input on a buy (FROM_TOKEN), from the output on a sell (TO_TOKEN).
+   * Quote and swap must carry the same direction and percent, or /swap answers 40462.
+   */
+  private feeQuoteParams(side: "buy" | "sell"): FeeQuoteParams {
+    const fee = this.config.fee;
+    return fee ? { feePercent: fee.percent, feeSource: side === "buy" ? "FROM_TOKEN" : "TO_TOKEN" } : {};
+  }
+
+  private feeSwapParams(side: "buy" | "sell"): FeeSwapParams {
+    const fee = this.config.fee;
+    if (!fee) return {};
+    return side === "buy"
+      ? { feePercent: fee.percent, fromTokenReferrerWalletAddress: fee.recipient }
+      : { feePercent: fee.percent, toTokenReferrerWalletAddress: fee.recipient };
   }
 
   private async quoteVersion(
@@ -532,6 +556,7 @@ export class FairFillEngine {
         fromTokenAddress: from,
         toTokenAddress: to,
         userWalletAddress: wallet ?? undefined,
+        ...this.feeQuoteParams(side),
       });
       return toVenueQuote(amountIn, routes);
     } catch (error) {
@@ -583,7 +608,14 @@ export class FairFillEngine {
     const { from, to, amountIn } = this.legs(version, input.side, input.amount);
     const quote = toVenueQuote(
       amountIn,
-      await api.quote({ binanceChainId: version.chainId, amount: amountIn, fromTokenAddress: from, toTokenAddress: to, userWalletAddress: input.wallet }),
+      await api.quote({
+        binanceChainId: version.chainId,
+        amount: amountIn,
+        fromTokenAddress: from,
+        toTokenAddress: to,
+        userWalletAddress: input.wallet,
+        ...this.feeQuoteParams(input.side),
+      }),
     );
     if (!quote.ok) throw new Web3ApiError("quote", quote.code, quote.message, null);
     const swap = await api.swap({
@@ -594,6 +626,7 @@ export class FairFillEngine {
       userWalletAddress: input.wallet,
       quoteId: quote.best.quoteId,
       ...(input.slippagePercent ? { slippagePercent: input.slippagePercent } : { autoSlippage: "true" as const }),
+      ...this.feeSwapParams(input.side),
     });
     let simulation: { ok: boolean; status?: string; failReason?: string | null; error?: string } | null = null;
     if (swap.executionMode === "SWAP" && swap.tx) {
@@ -707,6 +740,8 @@ export function toVenueQuote(amountIn: string, routes: QuoteRoute[] | null | und
     networkFeeUsd: parseNumber(r.tradeFee),
     approveTarget: r.approveTarget ?? null,
     isBest: Boolean(r.isBest),
+    // Fees are taken in USDT on both sides (see feeQuoteParams), so base units convert straight to USD.
+    feeUsd: r.feeAmount && r.feeToken?.toLowerCase() === QUOTE_TOKEN.address.toLowerCase() ? fromBaseUnitsNumber(r.feeAmount, QUOTE_TOKEN.decimals) : null,
   }));
   const honeypot = routes.find((r) => r.toToken?.isHoneyPot);
   if (honeypot) return { ok: false, code: "HONEYPOT", message: `${honeypot.toToken.tokenSymbol} is flagged as a honeypot by the Trading API` };

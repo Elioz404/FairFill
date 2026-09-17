@@ -10,6 +10,7 @@ export async function GET() {
     keysConfigured: engine.keysConfigured,
     keyIssue: issue ? { code: issue.code, message: issue.message } : null,
     rfqQuoteWallet: Boolean(engine.config.quoteWallet),
+    feePercent: engine.config.fee ? Number(engine.config.fee.percent) : null,
     x402: Boolean(engine.config.x402.payTo) && engine.mode === "live",
   });
 }

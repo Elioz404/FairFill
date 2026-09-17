@@ -9,6 +9,8 @@ export interface EngineConfig {
   policy: RankPolicy;
   journal: { enabled: boolean; dir: string };
   x402: { payTo: string | null; priceUsd: string; asset: string };
+  /** Optional integrator fee on AMM (SWAP) routes. RFQ routes ignore it (Trading API docs). */
+  fee: { percent: string; recipient: string } | null;
 }
 
 const num = (value: string | undefined, fallback: number) => {
@@ -17,6 +19,14 @@ const num = (value: string | undefined, fallback: number) => {
 };
 
 const isAddress = (value: string | undefined) => !!value && /^0x[0-9a-fA-F]{40}$/.test(value);
+
+/** The Trading API accepts feePercent in (0, 5] on EVM chains with at most two decimals (40466 otherwise). */
+export function parseFeePercent(value: string | undefined): string | null {
+  const raw = value?.trim();
+  if (!raw || !/^\d+(\.\d{1,2})?$/.test(raw)) return null;
+  const n = Number(raw);
+  return n > 0 && n <= 5 ? String(n) : null;
+}
 
 export function loadConfig(env: Record<string, string | undefined> = process.env): EngineConfig {
   return {
@@ -37,5 +47,12 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
       priceUsd: env.FAIRFILL_X402_PRICE_USD || "0.01",
       asset: isAddress(env.FAIRFILL_X402_ASSET) ? (env.FAIRFILL_X402_ASSET as string) : TOKENS.U.address,
     },
+    fee: feeConfig(env),
   };
+}
+
+function feeConfig(env: Record<string, string | undefined>): EngineConfig["fee"] {
+  const percent = parseFeePercent(env.FAIRFILL_FEE_PERCENT);
+  // Both values are required; a half-configured fee stays off rather than guessing.
+  return percent && isAddress(env.FAIRFILL_FEE_RECIPIENT) ? { percent, recipient: env.FAIRFILL_FEE_RECIPIENT as string } : null;
 }

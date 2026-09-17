@@ -145,6 +145,14 @@ The last command shows the reverse direction: a Studio agent paying FairFill's o
    `PAYMENT-REQUIRED` header, verifies `PAYMENT-SIGNATURE` with B402, computes the route, settles, and returns
    `PAYMENT-RESPONSE`. Nothing is settled if the route fails.
 
+### Optional integrator fee
+
+Off by default. Setting `FAIRFILL_FEE_PERCENT` (for example `0.1`) and `FAIRFILL_FEE_RECIPIENT` enables the
+Trading API custom fee: the percentage is sent atomically to the recipient in USDT, from the input on buys and
+from the output on sells. Quotes already return the net amount, so the fee is part of the all-in cost FairFill
+ranks by, and the UI, the paid route and the explanation all show it. RFQ routes (Ondo, bStocks RFQ) ignore
+fee parameters, so they never carry one.
+
 ## Safety
 
 - FairFill never holds keys. SWAP transactions are signed by the user's wallet; RFQ orders are EIP-712 signed by
@@ -153,6 +161,7 @@ The last command shows the reverse direction: a Studio agent paying FairFill's o
 - Approvals are for the exact amount, never unlimited.
 - The Web3 API secret stays on the server. Public routes are rate-limited (the API allows 5 RPS per endpoint).
 - FairFill compares execution venues. It does not recommend what to buy. Not investment advice.
+- The optional integrator fee is off unless both fee variables are set, and it is always shown to the user.
 
 ## Status and known limits
 
