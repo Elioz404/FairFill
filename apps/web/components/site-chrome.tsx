@@ -1,7 +1,7 @@
 import type { DataMode, SessionInfo } from "@fairfill/core/shared";
 import Link from "next/link";
 import { Wordmark } from "./logo";
-import { ModeBadge } from "./mode-badge";
+import { ModeBadge, type KeyIssueInfo } from "./mode-badge";
 import { SessionPill } from "./session";
 
 const NAV = [
@@ -12,7 +12,7 @@ const NAV = [
   { href: "/log", label: "Builder log" },
 ];
 
-export function SiteHeader({ mode, session }: { mode: DataMode; session: SessionInfo | null }) {
+export function SiteHeader({ mode, keyIssue, session }: { mode: DataMode; keyIssue: KeyIssueInfo | null; session: SessionInfo | null }) {
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-ink-950/85 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-6 px-4 sm:px-6">
@@ -32,7 +32,7 @@ export function SiteHeader({ mode, session }: { mode: DataMode; session: Session
               <SessionPill initial={session} />
             </span>
           ) : null}
-          <ModeBadge mode={mode} />
+          <ModeBadge mode={mode} keyIssue={keyIssue} />
         </div>
       </div>
     </header>

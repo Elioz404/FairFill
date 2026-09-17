@@ -20,7 +20,8 @@ export const viewport: Viewport = { themeColor: "#0b0e11" };
 export default async function RootLayout({ children }: { children: ReactNode }) {
   await connection();
   const engine = getEngine();
-  const session = await engine.marketSession();
+  const [session] = await Promise.all([engine.marketSession(), engine.probe()]);
+  const issue = engine.apiKeyIssue;
   return (
     <html lang="en" className={`${grotesk.variable} ${mono.variable}`}>
       <body className="min-h-dvh">
@@ -28,7 +29,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-gold focus:px-3 focus:py-2 focus:text-ink-950">
           Skip to content
         </a>
-        <SiteHeader mode={engine.mode} session={session} />
+        <SiteHeader mode={engine.mode} keyIssue={issue ? { code: issue.code, message: issue.message } : null} session={session} />
         <main id="main">{children}</main>
         <SiteFooter />
       </body>

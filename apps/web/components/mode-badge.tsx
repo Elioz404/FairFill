@@ -2,10 +2,22 @@
 
 import type { DataMode } from "@fairfill/core/shared";
 import clsx from "clsx";
-import { ChevronDown } from "lucide-react";
+import { AlertTriangle, ChevronDown } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
-const COPY: Record<DataMode, { title: string; lead: string; rows: [string, string][]; foot: ReactNode }> = {
+export interface KeyIssueInfo {
+  code: number | string | null;
+  message: string;
+}
+
+interface Copy {
+  title: string;
+  lead: ReactNode;
+  rows: [string, string][];
+  foot: ReactNode;
+}
+
+const COPY: Record<DataMode, Copy> = {
   preview: {
     title: "Preview mode",
     lead: "This server has no Binance Web3 API keys, so it runs on Binance's public, keyless market data.",
@@ -33,13 +45,31 @@ const COPY: Record<DataMode, { title: string; lead: string; rows: [string, strin
   },
 };
 
+function rejectedCopy(issue: KeyIssueInfo): Copy {
+  return {
+    title: "Live keys rejected",
+    lead: (
+      <>
+        This server has Binance Web3 API keys, but the gateway answered{" "}
+        <code className="num text-fg-soft">
+          {issue.code}: {issue.message}
+        </code>
+        . FairFill fell back to public data.
+      </>
+    ),
+    rows: COPY.preview.rows,
+    foot: "The key has to come from a project in the Binance Web3 Developer Portal (API Key Management). Update the server's .env and restart it.",
+  };
+}
+
 /** Data-mode badge in the header. Opens a short explanation of what the mode means. */
-export function ModeBadge({ mode }: { mode: DataMode }) {
+export function ModeBadge({ mode, keyIssue = null }: { mode: DataMode; keyIssue?: KeyIssueInfo | null }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const id = useId();
-  const copy = COPY[mode];
   const live = mode === "live";
+  const rejected = !live && keyIssue !== null;
+  const copy = rejected ? rejectedCopy(keyIssue) : COPY[mode];
 
   useEffect(() => {
     if (!open) return;
@@ -66,10 +96,11 @@ export function ModeBadge({ mode }: { mode: DataMode }) {
         onClick={() => setOpen((v) => !v)}
         className={clsx(
           "inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[10px] font-semibold tracking-[0.12em] transition",
-          live ? "border-gold/40 text-gold hover:border-gold/70" : "border-line-strong text-fg-muted hover:text-fg",
+          live || rejected ? "border-gold/40 text-gold hover:border-gold/70" : "border-line-strong text-fg-muted hover:text-fg",
         )}
       >
         {live ? <span className="size-1.5 rounded-full bg-gold animate-pulse-dot" /> : null}
+        {rejected ? <AlertTriangle className="size-3" /> : null}
         {live ? "LIVE" : "PREVIEW"}
         <ChevronDown className={clsx("size-3 transition-transform", open && "rotate-180")} />
       </button>
@@ -77,7 +108,7 @@ export function ModeBadge({ mode }: { mode: DataMode }) {
       {open ? (
         <div id={id} role="dialog" aria-label={copy.title} className="panel absolute right-0 top-full z-50 border-line-strong mt-2 w-[min(20rem,calc(100vw-2rem))] p-4 shadow-2xl animate-rise">
           <p className="text-sm font-semibold text-fg">{copy.title}</p>
-          <p className="mt-1.5 text-xs leading-relaxed text-fg-muted">{copy.lead}</p>
+          <p className="mt-1.5 break-words text-xs leading-relaxed text-fg-muted">{copy.lead}</p>
           <dl className="mt-3 space-y-2 border-t border-line pt-3 text-xs">
             {copy.rows.map(([term, text]) => (
               <div key={term} className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-2">

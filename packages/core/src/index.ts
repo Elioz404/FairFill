@@ -3,7 +3,7 @@ export * from "./shared/index";
 export { loadConfig, type EngineConfig } from "./config";
 export { FairFillEngine, NotConfiguredError, toVenueQuote } from "./engine";
 export { Journal, summarize, type JournalEntry, type EndpointStats } from "./journal";
-export { Web3ApiClient, Web3ApiError } from "./web3api/client";
+export { Web3ApiClient, Web3ApiError, type KeyIssue } from "./web3api/client";
 export { web3Api, ENDPOINTS, type Web3Api } from "./web3api/endpoints";
 export { buildQuery, preHash, signPreHash, signRequest, BUILD_PREFIX, WEB3_HOST } from "./web3api/sign";
 export { PublicBinance, ICON_HOST } from "./public/binance";

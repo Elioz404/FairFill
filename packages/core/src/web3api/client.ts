@@ -27,12 +27,23 @@ function isSuccess(env: Envelope<unknown>): boolean {
   return env.code === undefined && env.success === true;
 }
 
+/** Gateway answers that mean the keys themselves are unusable, not just one call. */
+const KEY_FAILURES = new Set(["40101", "40102", "40103", "40302"]);
+
+export interface KeyIssue {
+  code: number | string | null;
+  message: string;
+  httpStatus: number | null;
+}
+
 export interface ClientOptions {
   apiKey: string;
   secretKey: string;
   journal?: Journal;
   timeoutMs?: number;
   fetchImpl?: typeof fetch;
+  /** Called with the failure when the gateway rejects the keys, and with null after any successful call. */
+  onKeyStatus?: (issue: KeyIssue | null) => void;
 }
 
 export interface CallOptions {
@@ -118,5 +129,7 @@ export class Web3ApiClient {
 
   private log(method: string, endpoint: string, started: number, httpStatus: number | null, code: number | string | null, message: string | null, ok: boolean) {
     this.opts.journal?.record({ ts: started, method, endpoint, httpStatus, code, message, ok, ms: Date.now() - started });
+    if (ok) this.opts.onKeyStatus?.(null);
+    else if (code !== null && KEY_FAILURES.has(String(code))) this.opts.onKeyStatus?.({ code, message: message ?? "", httpStatus });
   }
 }

@@ -33,7 +33,7 @@ import type {
   VenueQuoteError,
 } from "./shared/types";
 import { fromBaseUnitsNumber, parseNumber, toBaseUnits } from "./shared/units";
-import { Web3ApiClient, Web3ApiError } from "./web3api/client";
+import { Web3ApiClient, Web3ApiError, type KeyIssue } from "./web3api/client";
 import { web3Api, type QuoteRoute, type RwaToken, type Web3Api } from "./web3api/endpoints";
 
 export class NotConfiguredError extends Error {
@@ -51,11 +51,19 @@ interface ListingMarkets {
 
 const addrKey = (address: string) => address.toLowerCase();
 
+/** How long rejected keys keep the engine on public data before it probes the gateway again. */
+const KEY_RETRY_MS = 60_000;
+
+export interface ApiKeyIssue extends KeyIssue {
+  at: number;
+}
+
 export class FairFillEngine {
-  readonly mode: DataMode;
   readonly journal: Journal;
   readonly api: Web3Api | null;
   readonly pub: PublicBinance;
+  private keyIssue: ApiKeyIssue | null = null;
+  private readonly probeCache = new TtlCache<void>(30_000);
 
   private readonly catalogCache = new TtlCache<Map<string, StockListing>>(10 * 60_000);
   private readonly marketCache = new TtlCache<ListingMarkets>(15_000);
@@ -65,13 +73,55 @@ export class FairFillEngine {
   constructor(readonly config: EngineConfig) {
     this.journal = new Journal(config.journal);
     this.pub = new PublicBinance(this.journal);
-    if (config.apiKey && config.secretKey) {
-      this.api = web3Api(new Web3ApiClient({ apiKey: config.apiKey, secretKey: config.secretKey, journal: this.journal }));
-      this.mode = "live";
-    } else {
-      this.api = null;
-      this.mode = "preview";
-    }
+    this.api =
+      config.apiKey && config.secretKey
+        ? web3Api(
+            new Web3ApiClient({
+              apiKey: config.apiKey,
+              secretKey: config.secretKey,
+              journal: this.journal,
+              onKeyStatus: (issue) => {
+                this.keyIssue = issue ? { ...issue, at: Date.now() } : null;
+              },
+            }),
+          )
+        : null;
+  }
+
+  // ── API availability ────────────────────────────────────────────────────
+
+  get keysConfigured(): boolean {
+    return this.api !== null;
+  }
+
+  /** Set when the gateway rejected the configured keys; cleared by the next successful call. */
+  get apiKeyIssue(): ApiKeyIssue | null {
+    return this.keyIssue;
+  }
+
+  /** The signed API, or null when there are no keys or the gateway is rejecting them. */
+  private get liveApi(): Web3Api | null {
+    if (!this.api) return null;
+    if (!this.keyIssue) return this.api;
+    if (Date.now() - this.keyIssue.at > KEY_RETRY_MS) void this.probe();
+    return null;
+  }
+
+  /** What the data on screen actually is: live needs keys the gateway accepts. */
+  get mode(): DataMode {
+    return this.liveApi ? "live" : "preview";
+  }
+
+  /** One cheap signed call, at most every 30 s, so the mode is known before a page renders. */
+  probe(): Promise<void> {
+    const api = this.api;
+    if (!api) return Promise.resolve();
+    return this.probeCache.get("probe", () =>
+      api.rwaPlatforms().then(
+        () => undefined,
+        () => undefined,
+      ),
+    );
   }
 
   // ── Catalog ─────────────────────────────────────────────────────────────
@@ -83,7 +133,7 @@ export class FairFillEngine {
   private async buildCatalog(): Promise<Map<string, StockListing>> {
     const [publicLists, liveTokens] = await Promise.all([
       Promise.allSettled(ISSUER_ORDER.map((id) => this.pub.catalog(ISSUERS[id].catalogType))),
-      this.api ? this.api.rwaTokens({ binanceChainId: BSC_CHAIN_ID }).catch(() => null) : Promise.resolve(null),
+      this.liveApi ? this.liveApi.rwaTokens({ binanceChainId: BSC_CHAIN_ID }).catch(() => null) : Promise.resolve(null),
     ]);
 
     const listings = new Map<string, StockListing>();
@@ -178,14 +228,19 @@ export class FairFillEngine {
   private async loadListingMarkets(listing: StockListing): Promise<ListingMarkets> {
     // The public RWA feed is the only source of an independent US-market price, so it is read in both modes.
     const dynamics = new Map<string, RwaDynamic | null>();
-    const publicVersions = this.api ? pickReferenceVersions(listing.versions) : listing.versions;
-    await mapLimit(publicVersions, 3, async (v) => {
-      dynamics.set(addrKey(v.address), await this.pub.rwaDynamic(v.chainId, v.address).catch(() => null));
-    });
+    const readDynamics = (versions: StockVersion[]) =>
+      mapLimit(versions, 3, async (v) => {
+        dynamics.set(addrKey(v.address), await this.pub.rwaDynamic(v.chainId, v.address).catch(() => null));
+      });
+    const live = this.liveApi;
+    await readDynamics(live ? pickReferenceVersions(listing.versions) : listing.versions);
 
-    const markets = this.api
-      ? await this.loadLiveMarkets(listing, dynamics)
-      : await this.loadPreviewMarkets(listing, dynamics);
+    let markets = live ? await this.loadLiveMarkets(live, listing, dynamics) : null;
+    if (!markets || !this.liveApi) {
+      // No keys, or the gateway rejected them during this load: use the public feed for every version.
+      await readDynamics(listing.versions.filter((v) => !dynamics.has(addrKey(v.address))));
+      markets = await this.loadPreviewMarkets(listing, dynamics);
+    }
 
     const usPrice = firstNumber(
       ["ondo", "xstocks", "bstocks"].flatMap((issuer) =>
@@ -221,8 +276,7 @@ export class FairFillEngine {
     });
   }
 
-  private async loadLiveMarkets(listing: StockListing, dynamics: Map<string, RwaDynamic | null>) {
-    const api = this.api as Web3Api;
+  private async loadLiveMarkets(api: Web3Api, listing: StockListing, dynamics: Map<string, RwaDynamic | null>) {
     const tokens = listing.versions.map((v) => ({ binanceChainId: v.chainId, tokenContractAddress: v.address }));
     const rwaCovered = listing.versions.filter((v) => ISSUERS[v.issuer].rwaPlatformId);
     const [infos, prices, sessions] = await Promise.all([
@@ -298,9 +352,10 @@ export class FairFillEngine {
       let usedApi = false;
       const series = await mapLimit(versions, 3, async (version): Promise<PriceSeries> => {
         let candles: Candle[] | null = null;
-        if (this.api) {
+        const live = this.liveApi;
+        if (live) {
           try {
-            const rows = await this.api.candles({ binanceChainId: version.chainId, tokenContractAddress: version.address, bar: spec.interval, limit: spec.points });
+            const rows = await live.candles({ binanceChainId: version.chainId, tokenContractAddress: version.address, bar: spec.interval, limit: spec.points });
             // Market API row: [open, high, low, close, volume, timestamp, tradeCount]
             candles = rows.map((r) => ({ t: Number(r[5]), close: Number(r[3]) }));
             usedApi = true;
@@ -344,8 +399,10 @@ export class FairFillEngine {
     const data = await this.listingMarkets(listing);
     const benchmark = this.benchmark(data);
     const wallet = order.wallet ?? this.config.quoteWallet;
+    const live = this.liveApi;
 
-    const assessments = await mapLimit(data.markets, 3, async ({ version, market }): Promise<VenueAssessment> => {
+    const assess = (quotes: Web3Api | null) =>
+      mapLimit(data.markets, 3, async ({ version, market }): Promise<VenueAssessment> => {
       if (side === "sell" && version.issuer !== order.issuer) {
         return {
           version,
@@ -359,7 +416,7 @@ export class FairFillEngine {
           flags: [],
         };
       }
-      const quote = this.api ? await this.quoteVersion(version, side, side === "buy" ? order.amountUsd! : order.tokens!, wallet) : null;
+      const quote = quotes ? await this.quoteVersion(quotes, version, side, side === "buy" ? order.amountUsd! : order.tokens!, wallet) : null;
       return assessVenue({
         version,
         market,
@@ -371,17 +428,28 @@ export class FairFillEngine {
         policy: this.config.policy,
       });
     });
+    let assessments = await assess(live);
+    // Rejected keys fail every quote the same way; fall back to indicative prices instead.
+    if (live && !this.liveApi) assessments = await assess(null);
 
     const { ranked, excluded } = rankVenues(assessments);
     const best = ranked[0] ?? null;
     const costs = ranked.map((r) => r.costBps).filter((c): c is number => c !== null);
     const warnings = sessionWarnings(data.session);
-    if (this.mode === "preview") warnings.unshift("Preview mode: indicative prices only. Add Binance Web3 API keys for executable quotes.");
-    if (!wallet && this.mode === "live") warnings.push("No wallet address: RFQ venues (Ondo, bStocks RFQ) cannot be quoted.");
+    const mode = this.mode;
+    const issue = this.keyIssue;
+    if (mode === "preview" && issue) {
+      warnings.unshift(
+        `The Binance Web3 API rejected this server's keys (${issue.code}: ${issue.message}). Showing indicative public prices; nothing can execute until the keys work.`,
+      );
+    } else if (mode === "preview") {
+      warnings.unshift("Preview mode: indicative prices only. Add Binance Web3 API keys for executable quotes.");
+    }
+    if (!wallet && mode === "live") warnings.push("No wallet address: RFQ venues (Ondo, bStocks RFQ) cannot be quoted.");
 
     return {
       id: randomUUID(),
-      mode: this.mode,
+      mode,
       createdAt: Date.now(),
       order: {
         ticker: listing.ticker,
@@ -409,8 +477,13 @@ export class FairFillEngine {
       : { from: version.address, to: QUOTE_TOKEN.address, amountIn: toBaseUnits(amount, version.decimals) };
   }
 
-  private async quoteVersion(version: StockVersion, side: "buy" | "sell", amount: number, wallet: string | null): Promise<VenueQuote | VenueQuoteError> {
-    const api = this.requireApi();
+  private async quoteVersion(
+    api: Web3Api,
+    version: StockVersion,
+    side: "buy" | "sell",
+    amount: number,
+    wallet: string | null,
+  ): Promise<VenueQuote | VenueQuoteError> {
     const { from, to, amountIn } = this.legs(version, side, amount);
     try {
       const routes = await api.quote({
@@ -456,6 +529,8 @@ export class FairFillEngine {
 
   requireApi(): Web3Api {
     if (!this.api) throw new NotConfiguredError("This action");
+    const issue = this.keyIssue;
+    if (!this.liveApi && issue) throw new Error(`The Binance Web3 API is rejecting this server's keys (${issue.code}: ${issue.message}).`);
     return this.api;
   }
 
