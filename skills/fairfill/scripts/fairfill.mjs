@@ -5,7 +5,7 @@
 //   node fairfill.mjs route <TICKER> buy <usd> [wallet]
 //   node fairfill.mjs route <TICKER> sell <tokens> <bstocks|ondo|xstocks> [wallet]
 
-const BASE = (process.env.FAIRFILL_API_URL || "http://localhost:3000").replace(/\/$/, "");
+const BASE = (process.env.FAIRFILL_API_URL || "https://fair-fill.vercel.app").replace(/\/$/, "");
 const USDT = "0x55d398326f99059fF775485246999027B3197955";
 
 async function call(path, init) {

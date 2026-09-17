@@ -31,7 +31,7 @@ Use whichever is available, in this order:
    node <skill-dir>/scripts/fairfill.mjs route AAPL buy 20 [walletAddress]
    node <skill-dir>/scripts/fairfill.mjs route AAPL sell 0.05 bstocks [walletAddress]
    ```
-   The CLI calls `FAIRFILL_API_URL` (default `http://localhost:3000`, the FairFill web app).
+   The CLI calls `FAIRFILL_API_URL` (default `https://fair-fill.vercel.app`, the public FairFill deployment; set it to `http://localhost:3000` for a local run).
 
 ## Workflow: buying or selling a tokenized stock
 

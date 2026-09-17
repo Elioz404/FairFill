@@ -13,7 +13,7 @@
 import { tool, type ToolSet } from "ai";
 import { z } from "zod";
 
-const BASE = (process.env.FAIRFILL_API_URL || "https://your-fairfill-deployment.example").replace(/\/$/, "");
+const BASE = (process.env.FAIRFILL_API_URL || "https://fair-fill.vercel.app").replace(/\/$/, "");
 
 async function fairfill<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {

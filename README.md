@@ -13,6 +13,8 @@ an **MCP server**, a **pay-per-route x402 endpoint** settled by **B402**, and a 
 
 Built for **BNB Hack: Tokenized Stocks Edition** (main track and both special prizes).
 
+**Live app:** https://fair-fill.vercel.app · **Health:** https://fair-fill.vercel.app/api/health
+
 ---
 
 ## Why this matters — measured, not assumed
@@ -125,7 +127,7 @@ interaction, so an idle tab does not use up the monthly function quota.
 ```bash
 # Binance Agentic Wallet + FairFill skills
 npx skills add binance/binance-skills-hub/skills/binance-web3/binance-agentic-wallet
-npx skills add <github-user>/<this-repo>/skills/fairfill
+npx skills add Elioz404/FairFill/skills/fairfill
 
 # MCP server (stdio) — the command any MCP client should launch
 pnpm -s --dir /path/to/repo mcp
@@ -146,11 +148,11 @@ reports (flags read from `@bnbagent/studio-cli` 0.0.13; re-check with `bag init 
 npm install --global @bnbagent/studio-cli
 bag init fairfillagent --protocols A2A,MCP,X402 --rails both --b402-price 0.01 --network bsc-testnet
 # copy agents/studio/fairfillTools.ts into app/agent/src/ and spread FAIRFILL_TOOLS into LLM_READ_TOOLS (tools.ts)
-bag env set FAIRFILL_API_URL https://<your-fairfill-deployment>
+bag env set FAIRFILL_API_URL https://fair-fill.vercel.app
 bag dev                                  # local run: A2A :9000, MCP :8000/mcp, /x402
 bag deploy --provider bnb                # managed 48 h testnet trial
 bag deploy verify --provider bnb         # reconcile the endpoint with the ERC-8004 identity
-bag x402 buy "https://<your-fairfill-deployment>/api/x402/route?ticker=AAPL&side=buy&amountUsd=20" --max-usd 0.02
+bag x402 buy "https://fair-fill.vercel.app/api/x402/route?ticker=AAPL&side=buy&amountUsd=20" --max-usd 0.02
 ```
 
 The last command shows the reverse direction: a Studio agent paying FairFill's own x402 route with U over EIP-3009.

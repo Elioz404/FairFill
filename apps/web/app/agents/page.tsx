@@ -38,7 +38,7 @@ export default async function AgentsPage() {
             the daily limit and token rules the user set in the Binance App.
           </p>
           <CodeBlock
-            code={`# 1. Binance Agentic Wallet (official)\nnpx skills add binance/binance-skills-hub/skills/binance-web3/binance-agentic-wallet\n\n# 2. FairFill skill (from this repository)\nnpx skills add <your-github-user>/fairfill/skills/fairfill`}
+            code={`# 1. Binance Agentic Wallet (official)\nnpx skills add binance/binance-skills-hub/skills/binance-web3/binance-agentic-wallet\n\n# 2. FairFill skill (from this repository)\nnpx skills add Elioz404/FairFill/skills/fairfill`}
           />
           <CodeBlock
             label="prompt"
