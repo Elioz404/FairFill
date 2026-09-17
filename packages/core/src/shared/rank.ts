@@ -70,7 +70,8 @@ function exclusionReason(code: ExclusionCode, a: { version: StockVersion; market
     case "PRICE_IMPACT":
       return `${who} would move the price too much for this size.`;
     case "NEEDS_WALLET":
-      return `${who} trades by RFQ, which needs your wallet address to quote. Connect a wallet to include it.`;
+      // The gateway asks for a wallet on Ondo and, despite the docs calling xStock AMM-only, on xStock quotes too.
+      return `The Trading API needs your wallet address to quote ${who}. Connect a wallet to include it.`;
     case "NO_PRICE":
       return `${who} has no usable price right now.`;
     case "NOT_HELD":

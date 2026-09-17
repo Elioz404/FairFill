@@ -64,6 +64,7 @@ export const ISSUERS: Record<IssuerId, IssuerInfo> = {
     notes: [
       "Not covered by the RWA Data API platform filter (ondo | bstock only)",
       "On 2026-09-16 the BSC pools we measured showed zero liquidity",
+      "On 2026-09-17 the quote endpoint asked for a wallet address, then reported no liquidity (40374)",
     ],
     mark: "dotted",
     dash: "1.5 4",

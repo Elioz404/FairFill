@@ -34,7 +34,7 @@ import type {
 } from "./shared/types";
 import { fromBaseUnitsNumber, parseNumber, toBaseUnits } from "./shared/units";
 import { Web3ApiClient, Web3ApiError, type KeyIssue } from "./web3api/client";
-import { web3Api, type QuoteRoute, type RwaToken, type Web3Api } from "./web3api/endpoints";
+import { web3Api, type PriceInfo, type QuoteRoute, type RwaToken, type RwaUnderlyingMarket, type Web3Api } from "./web3api/endpoints";
 
 export class NotConfiguredError extends Error {
   constructor(what: string) {
@@ -68,6 +68,12 @@ export class FairFillEngine {
   private readonly catalogCache = new TtlCache<Map<string, StockListing>>(10 * 60_000);
   private readonly marketCache = new TtlCache<ListingMarkets>(15_000);
   private readonly sessionCache = new TtlCache<SessionInfo>(30_000);
+  // Market status changes a few times a day; one call per token per minute is plenty.
+  private readonly rwaMarketCache = new TtlCache<RwaUnderlyingMarket | null>(60_000);
+  private readonly rwaIndexCache = new TtlCache<Map<string, RwaToken>>(30_000);
+  private readonly priceInfoCache = new TtlCache<PriceInfo | null>(10_000);
+  private priceInfoQueue: { token: { binanceChainId: string; tokenContractAddress: string }; resolve: (row: PriceInfo | null) => void }[] = [];
+  private priceInfoTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly historyCache = new TtlCache<PriceHistory | null>(90_000);
 
   constructor(readonly config: EngineConfig) {
@@ -276,35 +282,41 @@ export class FairFillEngine {
     });
   }
 
+  /**
+   * Live market data with as few signed calls as the docs allow (5 requests per second per endpoint):
+   * - GET /rwa/tokens: price and market status of every Ondo and bStocks token in one call, shared by all listings;
+   * - POST /price-info: volume and liquidity, batched across listings up to 100 tokens per call;
+   * - GET /rwa/underlying-market: only for RWA tokens missing from that list (it does not carry every bStocks token).
+   */
   private async loadLiveMarkets(api: Web3Api, listing: StockListing, dynamics: Map<string, RwaDynamic | null>) {
-    const tokens = listing.versions.map((v) => ({ binanceChainId: v.chainId, tokenContractAddress: v.address }));
-    const rwaCovered = listing.versions.filter((v) => ISSUERS[v.issuer].rwaPlatformId);
-    const [infos, prices, sessions] = await Promise.all([
-      api.priceInfo(tokens).catch(() => []),
-      rwaCovered.length ? api.rwaPrice(BSC_CHAIN_ID, rwaCovered.map((v) => v.address)).catch(() => []) : Promise.resolve([]),
-      mapLimit(rwaCovered, 2, async (v) => [addrKey(v.address), await api.rwaMarket(v.chainId, v.address).catch(() => null)] as const),
+    const [rwaIndex, infos] = await Promise.all([
+      this.rwaTokenIndex(api),
+      Promise.all(listing.versions.map((v) => this.priceInfoFor(api, v))),
     ]);
-    const infoBy = new Map(infos.map((i) => [addrKey(i.tokenContractAddress), i]));
-    const priceBy = new Map(prices.map((p) => [addrKey(p.tokenContractAddress), p]));
-    const sessionBy = new Map(sessions);
+    const infoBy = new Map(listing.versions.map((v, i) => [addrKey(v.address), infos[i] ?? null]));
 
     return mapLimit(listing.versions, 3, async (version) => {
       const key = addrKey(version.address);
-      const info = infoBy.get(key);
-      const price = priceBy.get(key);
-      let session = toSession(sessionBy.get(key)?.statusInfo);
+      const info = infoBy.get(key) ?? null;
+      const rwa = rwaIndex.get(key) ?? null;
+      let statusInfo: unknown = rwa?.statusInfo;
+      if (!rwa && ISSUERS[version.issuer].rwaPlatformId) {
+        // Failures are not cached: only a successful answer holds for the minute.
+        statusInfo = (await this.rwaMarketCache.get(key, () => api.rwaMarket(version.chainId, version.address)).catch(() => null))?.statusInfo;
+      }
+      let session = toSession(statusInfo);
       if (session.status === "unknown" && session.open === null) {
         // xStocks is outside the RWA Data API: fall back to the public status.
-        const rwa = dynamics.get(key) ?? (await this.pub.rwaDynamic(version.chainId, version.address).catch(() => null));
-        session = toSession(rwa?.statusInfo);
+        const pub = dynamics.get(key) ?? (await this.pub.rwaDynamic(version.chainId, version.address).catch(() => null));
+        session = toSession(pub?.statusInfo);
       }
-      const tokenPrice = parseNumber(price?.tokenPrice) ?? parseNumber(info?.price);
+      const tokenPrice = parseNumber(rwa?.tokenPrice) ?? parseNumber(info?.price);
       const buy = parseNumber(info?.buyVolume24H);
       const sell = parseNumber(info?.sellVolume24H);
       const market: VenueMarket = {
         tokenPriceUsd: tokenPrice,
         perSharePriceUsd: tokenPrice !== null && version.shareRatio > 0 ? tokenPrice / version.shareRatio : null,
-        priceUpdatedAt: price?.tokenPriceUpdatedAt ?? info?.time ?? null,
+        priceUpdatedAt: info?.time ?? null,
         onchainVolume24hUsd: buy === null && sell === null ? null : (buy ?? 0) + (sell ?? 0),
         liquidityUsd: parseNumber(info?.liquidity),
         holders: parseNumber(info?.holders),
@@ -312,6 +324,34 @@ export class FairFillEngine {
       };
       return { version, market };
     });
+  }
+
+  /** Every BSC RWA token from GET /rwa/tokens, by address. One call serves all listings for 30 s. */
+  private rwaTokenIndex(api: Web3Api): Promise<Map<string, RwaToken>> {
+    return this.rwaIndexCache
+      .get("bsc", async () => new Map((await api.rwaTokens({ binanceChainId: BSC_CHAIN_ID })).map((t) => [addrKey(t.tokenContractAddress), t])))
+      .catch(() => new Map());
+  }
+
+  /** POST /price-info for one token, coalesced with every other request made within the same tick. */
+  private priceInfoFor(api: Web3Api, version: StockVersion): Promise<PriceInfo | null> {
+    return this.priceInfoCache.get(addrKey(version.address), () =>
+      new Promise<PriceInfo | null>((resolve) => {
+        this.priceInfoQueue.push({ token: { binanceChainId: version.chainId, tokenContractAddress: version.address }, resolve });
+        this.priceInfoTimer ??= setTimeout(() => void this.flushPriceInfo(api), 20);
+      }),
+    );
+  }
+
+  private async flushPriceInfo(api: Web3Api): Promise<void> {
+    const queue = this.priceInfoQueue.splice(0);
+    this.priceInfoTimer = null;
+    for (let i = 0; i < queue.length; i += 100) {
+      const chunk = queue.slice(i, i + 100);
+      const rows = await api.priceInfo(chunk.map((c) => c.token)).catch(() => [] as PriceInfo[]);
+      const byAddress = new Map(rows.map((r) => [addrKey(r.tokenContractAddress), r]));
+      for (const c of chunk) c.resolve(byAddress.get(addrKey(c.token.tokenContractAddress)) ?? null);
+    }
   }
 
   private benchmark(data: ListingMarkets): Benchmark {
