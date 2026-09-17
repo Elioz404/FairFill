@@ -150,8 +150,8 @@ The last command shows the reverse direction: a Studio agent paying FairFill's o
 Off by default. Setting `FAIRFILL_FEE_PERCENT` (for example `0.1`) and `FAIRFILL_FEE_RECIPIENT` enables the
 Trading API custom fee: the percentage is sent atomically to the recipient in USDT, from the input on buys and
 from the output on sells. Quotes already return the net amount, so the fee is part of the all-in cost FairFill
-ranks by, and the UI, the paid route and the explanation all show it. RFQ routes (Ondo, bStocks RFQ) ignore
-fee parameters, so they never carry one.
+ranks by, and the UI, the paid route and the explanation all show it. RFQ routes ignore fee parameters, so they
+never carry one; the per-route fee comes from the quote itself.
 
 ## Safety
 
