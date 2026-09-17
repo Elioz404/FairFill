@@ -92,15 +92,15 @@ export function WalletExecutor({ wallet, address, decision, receipt }: { wallet:
 
       current = "allowance";
       mark("allowance", "active");
-      const spender = (built.route.approveTarget ?? built.tx?.to) as Address | undefined;
-      if (!spender) throw new Error("The Trading API returned no spender for this route");
-      const allowance = await publicClient.readContract({ address: built.fromToken, abi: erc20Abi, functionName: "allowance", args: [account, spender] });
+      // The spender comes from /approve-transaction (dexContractAddress); the docs call the quote's
+      // approveTarget informational only. RFQ routes need the vendor from the quote.
+      const approve = await post<{ to: Address; data: Hex; spender: Address; gasLimit: string }>("/api/execute/approve", {
+        token: built.fromToken,
+        amount: built.amountIn,
+        vendor: built.route.mode === "RFQ" ? built.route.vendor : undefined,
+      });
+      const allowance = await publicClient.readContract({ address: built.fromToken, abi: erc20Abi, functionName: "allowance", args: [account, approve.spender] });
       if (allowance < BigInt(built.amountIn)) {
-        const approve = await post<{ to: Address; data: Hex; spender: string; gasLimit: string }>("/api/execute/approve", {
-          token: built.fromToken,
-          amount: built.amountIn,
-          vendor: built.route.mode === "RFQ" ? built.route.vendor : undefined,
-        });
         const hash = await walletClient.sendTransaction({ to: approve.to, data: approve.data, gas: BigInt(approve.gasLimit) });
         setNote(`Approval sent · ${hash.slice(0, 10)}…`);
         const r = await publicClient.waitForTransactionReceipt({ hash });
