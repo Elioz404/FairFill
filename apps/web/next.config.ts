@@ -17,7 +17,11 @@ const root = findRepoRoot(process.cwd());
 const rootEnv = root ? path.join(root, ".env") : null;
 if (rootEnv && existsSync(rootEnv)) process.loadEnvFile(rootEnv);
 // Keep the DX journal in one place regardless of where the server was started.
-if (root && !process.env.FAIRFILL_JOURNAL_DIR) process.env.FAIRFILL_JOURNAL_DIR = path.join(root, ".dx-journal");
+// On Vercel the deployment is read-only; /tmp is the writable scratch space of each instance.
+if (!process.env.FAIRFILL_JOURNAL_DIR) {
+  if (process.env.VERCEL) process.env.FAIRFILL_JOURNAL_DIR = "/tmp/fairfill-journal";
+  else if (root) process.env.FAIRFILL_JOURNAL_DIR = path.join(root, ".dx-journal");
+}
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@fairfill/core"],

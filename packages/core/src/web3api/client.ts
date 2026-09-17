@@ -28,10 +28,11 @@ function isSuccess(env: Envelope<unknown>): boolean {
 }
 
 /**
- * Gateway answers that mean the keys themselves are unusable, not just one call.
+ * Gateway answers that make every call fail, not just one: rejected keys (40101, 40102) and a server location
+ * or IP the gateway refuses (40301 region, 40302 proxy/VPN, 40303 unusual IP activity).
  * 40103 is left out: it also covers a single replayed request.
  */
-const KEY_FAILURES = new Set(["40101", "40102", "40302"]);
+const KEY_FAILURES = new Set(["40101", "40102", "40301", "40302", "40303"]);
 
 export interface KeyIssue {
   code: number | string | null;

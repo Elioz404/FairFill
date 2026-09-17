@@ -9,7 +9,7 @@ import { StockLogo } from "./stock-logo";
 
 /** Scrolling strip: reference price, 24h move and fair venue per ticker. Refreshes with the board. */
 export function TickerTape({ initial }: { initial: { rows: BoardRow[]; session: SessionInfo; fetchedAt: number } }) {
-  const { data } = usePoll("/api/board", 30_000, initial);
+  const { data } = usePoll("/api/board", 60_000, initial);
   const rows = (data ?? initial).rows;
   if (rows.length === 0) return null;
   const items = rows.map((row) => ({ row, best: rankVenues(row.snapshot.venues).ranked[0] }));

@@ -46,6 +46,22 @@ const COPY: Record<DataMode, Copy> = {
 };
 
 function rejectedCopy(issue: KeyIssueInfo): Copy {
+  if (/^4030[1-3]$/.test(String(issue.code))) {
+    return {
+      title: "Server location rejected",
+      lead: (
+        <>
+          The Binance Web3 API refused this server&apos;s IP (
+          <code className="num text-fg-soft">
+            {issue.code}: {issue.message}
+          </code>
+          ). FairFill fell back to public data.
+        </>
+      ),
+      rows: COPY.preview.rows,
+      foot: "Run the server in a region the Web3 API allows (the US, Canada, the Netherlands, the UK and Japan are blocked) and without a proxy or VPN.",
+    };
+  }
   return {
     title: "Live keys rejected",
     lead: (

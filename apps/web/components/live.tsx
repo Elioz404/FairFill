@@ -4,6 +4,39 @@ import clsx from "clsx";
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+// Live data stops refreshing after a while without user activity, so a forgotten tab does not keep
+// spending the free hosting and API quotas. Any interaction resumes it immediately.
+const IDLE_MS = 5 * 60_000;
+let lastActivity = Date.now();
+let tracking = false;
+const resumeListeners = new Set<() => void>();
+
+function trackActivity() {
+  if (tracking || typeof window === "undefined") return;
+  tracking = true;
+  const mark = () => {
+    const wasIdle = isIdle();
+    lastActivity = Date.now();
+    if (wasIdle) resumeListeners.forEach((listener) => listener());
+  };
+  for (const type of ["pointerdown", "pointermove", "keydown", "scroll", "touchstart", "focus"]) {
+    window.addEventListener(type, mark, { passive: true });
+  }
+}
+
+export function isIdle(): boolean {
+  return Date.now() - lastActivity > IDLE_MS;
+}
+
+/** Calls `listener` when the user comes back after being idle. Returns an unsubscribe function. */
+export function onResume(listener: () => void): () => void {
+  trackActivity();
+  resumeListeners.add(listener);
+  return () => {
+    resumeListeners.delete(listener);
+  };
+}
+
 /** Re-renders every `intervalMs` with the current time. */
 export function useNow(intervalMs = 1000): number {
   const [now, setNow] = useState(() => Date.now());
@@ -54,15 +87,17 @@ export function usePoll<T>(url: string | null, intervalMs: number, initial: T | 
       void refresh();
     }
     const id = setInterval(() => {
-      if (!document.hidden) void refresh();
+      if (!document.hidden && !isIdle()) void refresh();
     }, intervalMs);
     const onVisible = () => {
-      if (!document.hidden) void refresh();
+      if (!document.hidden && !isIdle()) void refresh();
     };
     document.addEventListener("visibilitychange", onVisible);
+    const stopResume = onResume(() => void refresh());
     return () => {
       clearInterval(id);
       document.removeEventListener("visibilitychange", onVisible);
+      stopResume();
       controller.current?.abort();
     };
     // `initial` only matters on mount, so it is deliberately not a dependency.

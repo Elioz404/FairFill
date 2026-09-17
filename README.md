@@ -102,6 +102,24 @@ pnpm tape                   # prototype: live cross-issuer tape from public data
 pnpm build                  # production build (type-checked)
 ```
 
+### Deploy (Vercel)
+
+1. Import the GitHub repository in Vercel and set **Root Directory** to `apps/web`. Vercel detects the pnpm
+   workspace from the root lockfile.
+2. Add the environment variables from `.env.example` (at least `BINANCE_WEB3_API_KEY` and
+   `BINANCE_WEB3_SECRET_KEY`). `FAIRFILL_BASE_URL` is optional: it defaults to the production domain.
+3. Deploy. `apps/web/vercel.json` pins the functions to `sin1` (Singapore).
+
+The region matters: the Binance Web3 API checks the server IP and blocks, among others, the United States,
+Canada, the Netherlands, the United Kingdom and Japan
+([list](https://web3.binance.com/en/dev-docs/web3-api-prohibited-regions)). Vercel's default region is in
+the US. After deploying, `GET /api/health` reports `mode`, `keyIssue` and the `region` the request ran in; a
+`keyIssue` such as `40301` or `40302` means the server location is being rejected, and `fra1` (Frankfurt)
+is the alternative to try.
+
+On the free plan, live data pauses after five minutes without user activity and resumes on the next
+interaction, so an idle tab does not use up the monthly function quota.
+
 ### Agents
 
 ```bash

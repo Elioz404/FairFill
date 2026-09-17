@@ -33,7 +33,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     apiKey: env.BINANCE_WEB3_API_KEY || null,
     secretKey: env.BINANCE_WEB3_SECRET_KEY || null,
     quoteWallet: isAddress(env.FAIRFILL_QUOTE_WALLET) ? (env.FAIRFILL_QUOTE_WALLET as string) : null,
-    baseUrl: (env.FAIRFILL_BASE_URL || "http://localhost:3000").replace(/\/$/, ""),
+    baseUrl: baseUrl(env),
     policy: {
       minOnchainVolumeUsd: num(env.FAIRFILL_MIN_ONCHAIN_VOLUME_USD, DEFAULT_POLICY.minOnchainVolumeUsd),
       maxPriceImpactPct: num(env.FAIRFILL_MAX_PRICE_IMPACT_PCT, DEFAULT_POLICY.maxPriceImpactPct),
@@ -55,4 +55,13 @@ function feeConfig(env: Record<string, string | undefined>): EngineConfig["fee"]
   const percent = parseFeePercent(env.FAIRFILL_FEE_PERCENT);
   // Both values are required; a half-configured fee stays off rather than guessing.
   return percent && isAddress(env.FAIRFILL_FEE_RECIPIENT) ? { percent, recipient: env.FAIRFILL_FEE_RECIPIENT as string } : null;
+}
+
+/** Explicit FAIRFILL_BASE_URL wins; on Vercel the production domain is known (without protocol). */
+function baseUrl(env: Record<string, string | undefined>): string {
+  const explicit = env.FAIRFILL_BASE_URL?.trim();
+  if (explicit) return explicit.replace(/\/$/, "");
+  const vercel = env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+  if (vercel) return `https://${vercel.replace(/\/$/, "")}`;
+  return "http://localhost:3000";
 }

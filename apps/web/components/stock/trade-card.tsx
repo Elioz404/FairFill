@@ -16,7 +16,7 @@ import {
 import clsx from "clsx";
 import { AlertTriangle, ArrowDownUp, Check, ChevronDown, Info, Loader2, Wallet } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
-import { AnimatedNumber, useNow } from "../live";
+import { AnimatedNumber, isIdle, onResume, useNow } from "../live";
 import { Modal } from "../modal";
 import { IssuerMark, LiquidityMeter, Stamp, verdictOf } from "../primitives";
 import { StockLogo } from "../stock-logo";
@@ -135,8 +135,14 @@ export function TradeCard({
     if (!quoted || modal) return;
     const refresh = () => setNonce((n) => n + 1);
     let onVisible: (() => void) | null = null;
+    let stopResume: (() => void) | null = null;
     const timer = setTimeout(
       () => {
+        // An idle or hidden page waits for the user instead of quoting in the background.
+        if (isIdle()) {
+          stopResume = onResume(refresh);
+          return;
+        }
         if (!document.hidden) return refresh();
         onVisible = () => {
           if (!document.hidden) refresh();
@@ -148,6 +154,7 @@ export function TradeCard({
     return () => {
       clearTimeout(timer);
       if (onVisible) document.removeEventListener("visibilitychange", onVisible);
+      stopResume?.();
     };
   }, [quoted, modal]);
 

@@ -22,3 +22,11 @@ describe("integrator fee config", () => {
     expect(loadConfig({ FAIRFILL_FEE_PERCENT: "0.10", FAIRFILL_FEE_RECIPIENT: RECIPIENT }).fee).toEqual({ percent: "0.1", recipient: RECIPIENT });
   });
 });
+
+describe("base URL", () => {
+  it("prefers FAIRFILL_BASE_URL, then the Vercel production domain, then localhost", () => {
+    expect(loadConfig({ FAIRFILL_BASE_URL: "https://fairfill.example/", VERCEL_PROJECT_PRODUCTION_URL: "x.vercel.app" }).baseUrl).toBe("https://fairfill.example");
+    expect(loadConfig({ VERCEL_PROJECT_PRODUCTION_URL: "fairfill.vercel.app" }).baseUrl).toBe("https://fairfill.vercel.app");
+    expect(loadConfig({}).baseUrl).toBe("http://localhost:3000");
+  });
+});
