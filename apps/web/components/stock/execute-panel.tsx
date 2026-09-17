@@ -10,8 +10,22 @@ import { WalletExecutor } from "./wallet-executor";
 
 type WalletState = ReturnType<typeof useWallet>;
 
-export function ExecutePanel({ decision, receipt, mode, wallet }: { decision: RouteDecision; receipt: string | null; mode: DataMode; wallet: WalletState }) {
-  const [tab, setTab] = useState<"agent" | "browser">("agent");
+export function ExecutePanel({
+  decision,
+  receipt,
+  mode,
+  wallet,
+  manualPick = false,
+}: {
+  decision: RouteDecision;
+  receipt: string | null;
+  mode: DataMode;
+  wallet: WalletState;
+  /** The user chose this version over the fair fill, so the agent must not re-route. */
+  manualPick?: boolean;
+}) {
+  // Live servers can build and simulate the transaction, so the browser wallet leads there.
+  const [tab, setTab] = useState<"agent" | "browser">(mode === "live" ? "browser" : "agent");
   const best = decision.best;
   if (!best) return null;
 
@@ -21,9 +35,11 @@ export function ExecutePanel({ decision, receipt, mode, wallet }: { decision: Ro
   const to = side === "buy" ? best.version.address : TOKENS.USDT.address;
   const name = decision.listing.name ?? decision.listing.ticker;
   const prompt =
-    side === "buy"
-      ? `Use FairFill to buy $${qty} of ${name} (${decision.listing.ticker}) on BSC, then fill the version it picks with my Binance Agentic Wallet. Show me the quote before executing.`
-      : `Use FairFill to sell ${qty} ${best.version.symbol} for USDT with my Binance Agentic Wallet. Show me the quote before executing.`;
+    side === "sell"
+      ? `Use FairFill to sell ${qty} ${best.version.symbol} for USDT with my Binance Agentic Wallet. Show me the quote before executing.`
+      : manualPick
+        ? `Buy $${qty} of ${best.version.symbol} (${name}, ${best.version.address}) on BSC with my Binance Agentic Wallet. Use this exact token even if FairFill prefers another version. Show me the quote before executing.`
+        : `Use FairFill to buy $${qty} of ${name} (${decision.listing.ticker}) on BSC, then fill the version it picks with my Binance Agentic Wallet. Show me the quote before executing.`;
   const commands = [
     `# quote only`,
     `baw market-order quote --fromTokenQty ${qty} --fromToken ${from} --toToken ${to} --binanceChainId 56 --json`,
@@ -58,7 +74,7 @@ export function ExecutePanel({ decision, receipt, mode, wallet }: { decision: Ro
       {tab === "agent" ? (
         <div className="mt-4 space-y-3">
           <p className="text-xs leading-relaxed text-fg-muted">
-            Recommended. Paste this into Codex, Hermes or any agent CLI with the FairFill and Binance Agentic Wallet skills installed. Your
+            Paste this into Codex, Hermes or any agent CLI with the FairFill and Binance Agentic Wallet skills installed. Your
             daily limit and token rules from the Binance App still apply.
           </p>
           <CodeBlock label="prompt" code={prompt} wrap />

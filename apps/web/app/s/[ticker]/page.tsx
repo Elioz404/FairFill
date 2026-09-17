@@ -7,9 +7,9 @@ import { connection } from "next/server";
 import { IssuerMark } from "@/components/primitives";
 import { StockLogo } from "@/components/stock-logo";
 import { SearchBox } from "@/components/search-box";
-import { OrderTicket } from "@/components/stock/order-ticket";
 import { LiveReference, StockLive } from "@/components/stock/stock-live";
 import { TicketJump } from "@/components/stock/ticket-jump";
+import { TradeCard } from "@/components/stock/trade-card";
 import { getEngine } from "@/lib/server";
 
 export async function generateMetadata(props: PageProps<"/s/[ticker]">): Promise<Metadata> {
@@ -65,17 +65,24 @@ export default async function StockPage(props: PageProps<"/s/[ticker]">) {
         <LiveReference initial={tape} />
       </header>
 
-      {/* Small screens: versions, then the ticket, then the facts. Large screens: the ticket rides alongside. */}
+      {/* Small screens: versions, then the trade card, then the facts. Large screens: the card rides alongside. */}
       <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-x-8">
         <div className="min-w-0 lg:col-start-1 lg:row-start-1">
           <StockLive initial={tape} initialHistory={history} />
         </div>
 
         <aside
-          aria-label="Order ticket"
+          aria-label={`Trade ${listing.ticker}`}
           className="min-w-0 lg:sticky lg:top-24 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:max-h-[calc(100dvh-7rem)] lg:self-start lg:overflow-y-auto lg:overscroll-contain lg:rounded-2xl [scrollbar-width:thin]"
         >
-          <OrderTicket ticker={listing.ticker} name={listing.name} issuers={listing.versions.map((v) => v.issuer)} mode={tape.mode} />
+          <TradeCard
+            ticker={listing.ticker}
+            name={listing.name}
+            logoUrl={listing.logoUrl ?? null}
+            versions={listing.versions}
+            referenceUsd={tape.benchmark.priceUsd}
+            mode={tape.mode}
+          />
         </aside>
 
         <section className="min-w-0 lg:col-start-1 lg:row-start-2">
@@ -114,7 +121,7 @@ export default async function StockPage(props: PageProps<"/s/[ticker]">) {
         </section>
       </div>
 
-      <TicketJump label={`Find the fair fill for ${listing.ticker}`} />
+      <TicketJump label={`Trade ${listing.name ?? listing.ticker}`} />
     </div>
   );
 }

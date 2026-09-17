@@ -3,14 +3,14 @@
 import clsx from "clsx";
 import { useEffect, useState } from "react";
 
-/** Small-screen shortcut to the order ticket, hidden while the ticket is on screen. */
+/** Small-screen shortcut to the trade card, hidden while the card is on screen. */
 export function TicketJump({ label }: { label: string }) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const ticket = document.getElementById("order-ticket");
+    const ticket = document.getElementById("trade");
     if (!ticket) return;
-    // Only while the ticket is still below the fold: past it, the user has already seen it.
+    // Only while the card is still below the fold: past it, the user has already seen it.
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry) setVisible(!entry.isIntersecting && entry.boundingClientRect.top > 0);
@@ -30,11 +30,11 @@ export function TicketJump({ label }: { label: string }) {
       )}
     >
       <a
-        href="#order-ticket"
+        href="#trade"
         tabIndex={visible ? 0 : -1}
         onClick={(e) => {
           e.preventDefault();
-          document.getElementById("order-ticket")?.scrollIntoView({ block: "start", behavior: "smooth" });
+          document.getElementById("trade")?.scrollIntoView({ block: "start", behavior: "smooth" });
         }}
         className="flex w-full items-center justify-center rounded-xl bg-gold px-4 py-3 text-sm font-semibold text-ink-950 transition hover:bg-gold-bright"
       >

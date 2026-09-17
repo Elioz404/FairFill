@@ -13,6 +13,7 @@ import {
   siRobinhood,
   siSeagate,
   siTesla,
+  siTether,
 } from "simple-icons";
 
 /**
@@ -38,3 +39,6 @@ export const BRAND_ICONS: Record<string, { title: string; path: string }> = {
   STX: siSeagate,
   TSLA: siTesla,
 };
+
+/** The quote token every version is priced against (USDT on BSC). */
+export const USDT_ICON: { title: string; path: string } = siTether;
