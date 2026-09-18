@@ -15,6 +15,8 @@ Built for **BNB Hack: Tokenized Stocks Edition** (main track and both special pr
 
 **Live app:** https://fair-fill.vercel.app · **Health:** https://fair-fill.vercel.app/api/health
 
+![FairFill home: the three BNB Chain versions of Apple side by side, one badged as the fair fill and one struck through as a stale price](assets/screenshots/01-home.webp)
+
 ---
 
 ## Why this matters — measured, not assumed
@@ -74,6 +76,26 @@ otherwise the median per-share price of the versions that actually trade.
 
 Every call goes through a signed HMAC client (`/build` prefix included in the signature) and is recorded by the
 **DX journal** — latency, HTTP status and the exact business code and message — visible at `/log`.
+
+## What it looks like
+
+Screenshots come from the live app; the numbers are whatever the Binance Web3 API returned that minute.
+
+| | |
+|---|---|
+| ![The consolidated tape: every tracked stock with its versions on BSC, the fair venue right now, the reference price and the gap between versions](assets/screenshots/02-tape.webp) | ![The AAPL page: bStocks, Ondo and xStocks with per-share price, 24h turnover, execution mechanism and share ratio](assets/screenshots/03-versions.webp) |
+| **The consolidated tape.** Every version of every tracked stock against a fair reference. Versions nobody is trading are struck through. | **One stock, every version audited.** Per share, 24h on-chain turnover, execution mechanism, shares per token, and how long ago it last traded. |
+
+![The compare dialog: the three Apple versions ranked by all-in cost, with the excluded one quoting its reason in plain words](assets/screenshots/04-compare.webp)
+
+**The order ticket compares shares, not tokens.** Each issuer's token stands for a slightly different number of shares, so FairFill
+ranks by all-in cost per share and writes the exclusion out in plain words — here the xStocks pool is dropped because its turnover
+is a rounding error next to the other two, which is a stale price rather than a discount.
+
+![The builder log: a table of every Binance Web3 API endpoint with call count, error count, p50 and p95 latency, and the last error, followed by recent errors quoted verbatim](assets/screenshots/05-log.webp)
+
+**The builder log is the DX report's raw material.** Latency, HTTP status and the exact business code of every signed call —
+`42900` rate limits and `40374` no-liquidity replies included, quoted verbatim.
 
 ## Surfaces
 
