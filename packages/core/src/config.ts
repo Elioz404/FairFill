@@ -37,6 +37,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     policy: {
       minOnchainVolumeUsd: num(env.FAIRFILL_MIN_ONCHAIN_VOLUME_USD, DEFAULT_POLICY.minOnchainVolumeUsd),
       maxPriceImpactPct: num(env.FAIRFILL_MAX_PRICE_IMPACT_PCT, DEFAULT_POLICY.maxPriceImpactPct),
+      minPeerVolumeShare: num(env.FAIRFILL_MIN_PEER_VOLUME_SHARE, DEFAULT_POLICY.minPeerVolumeShare),
     },
     journal: {
       enabled: (env.FAIRFILL_JOURNAL ?? "on") !== "off",

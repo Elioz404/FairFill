@@ -50,7 +50,8 @@ Reproduce with `node prototype/tape.mjs NVDA COIN`.
 ```
 
 Exclusion rules are explicit and tested (`packages/core/test/rank.test.ts`): corporate-action halts, RFQ venues
-while the market is closed, stale prices (on-chain turnover below a threshold), documented Trading API errors
+while the market is closed, stale prices (24h on-chain turnover below an absolute floor **or** below 5% of the
+median version of the same stock — a pool doing $1.2k a day next to one doing $17M is not a discount), documented Trading API errors
 (`40367`, `40369`, `40375`, `40366`, `40421`, `40374`), missing wallet for RFQ quotes, excessive price impact
 and honeypot flags.
 

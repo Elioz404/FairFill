@@ -16,9 +16,34 @@ import type {
 export interface RankPolicy {
   minOnchainVolumeUsd: number;
   maxPriceImpactPct: number;
+  /**
+   * A venue also counts as stale when its 24h turnover falls below this share of the median venue
+   * for the same stock. An absolute floor alone lets a pool that trades a few hundred dollars a day
+   * pass while its displayed price drifts far from the others.
+   */
+  minPeerVolumeShare: number;
 }
 
-export const DEFAULT_POLICY: RankPolicy = { minOnchainVolumeUsd: 1_000, maxPriceImpactPct: 3 };
+export const DEFAULT_POLICY: RankPolicy = { minOnchainVolumeUsd: 1_000, maxPriceImpactPct: 3, minPeerVolumeShare: 0.05 };
+
+/**
+ * Median 24h turnover of the venues quoting the same stock, used for the relative staleness rule.
+ * Zero-turnover venues are kept on purpose: with three versions and one dead pool the median lands on
+ * the middle venue, which is the reference we want. Dropping them would pull the median up to the mean
+ * of the two live venues and flag a genuinely traded one as stale.
+ */
+export function medianVolumeUsd(volumes: (number | null | undefined)[]): number | null {
+  const values = volumes.filter((v): v is number => typeof v === "number" && Number.isFinite(v)).sort((a, b) => a - b);
+  if (values.length === 0) return null;
+  const mid = Math.floor(values.length / 2);
+  return values.length % 2 ? (values[mid] as number) : ((values[mid - 1] as number) + (values[mid] as number)) / 2;
+}
+
+/** Below this 24h turnover a displayed price is treated as stale: an absolute floor, raised by the peer rule. */
+export function staleFloorUsd(policy: RankPolicy, peerMedianVolumeUsd: number | null): number {
+  const peerFloor = peerMedianVolumeUsd !== null && peerMedianVolumeUsd > 0 ? peerMedianVolumeUsd * policy.minPeerVolumeShare : 0;
+  return Math.max(policy.minOnchainVolumeUsd, peerFloor);
+}
 
 export interface AssessInput {
   version: StockVersion;
@@ -31,6 +56,8 @@ export interface AssessInput {
   tokens: number | null;
   benchmark: Benchmark;
   policy: RankPolicy;
+  /** Median 24h turnover across this stock's venues (see medianVolumeUsd). */
+  peerMedianVolumeUsd?: number | null;
 }
 
 // Trading API error codes (docs: Trading API → Error Codes → RFQ Orders).
@@ -50,9 +77,13 @@ export function classifyQuoteError(error: VenueQuoteError): ExclusionCode {
   return "QUOTE_FAILED";
 }
 
-function exclusionReason(code: ExclusionCode, a: { version: StockVersion; market: VenueMarket; quote: VenueQuoteError | null }): string {
+function exclusionReason(
+  code: ExclusionCode,
+  a: { version: StockVersion; market: VenueMarket; quote: VenueQuoteError | null; peerMedianVolumeUsd?: number | null },
+): string {
   const who = `${a.version.symbol} (${ISSUERS[a.version.issuer].label})`;
   const vol = a.market.onchainVolume24hUsd;
+  const peerMedian = a.peerMedianVolumeUsd ?? null;
   switch (code) {
     case "HALTED":
       if (isCorporateAction(a.market.session)) {
@@ -63,7 +94,9 @@ function exclusionReason(code: ExclusionCode, a: { version: StockVersion; market
         : `${who} only quotes while its market is open${a.market.session.reasonMsg ? ` (${a.market.session.reasonMsg})` : ""}.`;
     case "NO_LIQUIDITY":
       return vol !== null
-        ? `${who} has ${fmtCompactUsd(vol)} of on-chain turnover in 24h — its displayed price is stale, not a discount.`
+        ? `${who} has ${fmtCompactUsd(vol)} of on-chain turnover in 24h${
+            peerMedian ? `, against ${fmtCompactUsd(peerMedian)} at the other versions` : ""
+          } — its displayed price is stale, not a discount.`
         : `${who} returned no liquidity for this size.`;
     case "BELOW_MINIMUM":
       return `${who} rejects this size: ${a.quote?.message ?? "below the issuer minimum"}`;
@@ -83,7 +116,7 @@ function exclusionReason(code: ExclusionCode, a: { version: StockVersion; market
 }
 
 export function assessVenue(input: AssessInput): VenueAssessment {
-  const { version, market, quote, side, benchmark, policy } = input;
+  const { version, market, quote, side, benchmark, policy, peerMedianVolumeUsd = null } = input;
   const flags: VenueFlag[] = [];
   const session = market.session;
   const volume = market.onchainVolume24hUsd;
@@ -94,7 +127,10 @@ export function assessVenue(input: AssessInput): VenueAssessment {
     flags.push("market-closed");
     if (version.issuer === "bstocks") flags.push("rfq-closed");
   }
-  if (volume !== null && volume < policy.minOnchainVolumeUsd) flags.push("stale-price");
+  // Two different statements: "stale" is about the price being unmaintained (relative to the other
+  // versions), "thin" is about absolute depth. Riding the thin band on the relative floor would badge a
+  // venue doing $460k a day as thin just because its sibling does millions.
+  if (volume !== null && volume < staleFloorUsd(policy, peerMedianVolumeUsd)) flags.push("stale-price");
   else if (volume !== null && volume < policy.minOnchainVolumeUsd * 25) flags.push("thin-liquidity");
 
   const base: VenueAssessment = {
@@ -111,7 +147,7 @@ export function assessVenue(input: AssessInput): VenueAssessment {
 
   const exclude = (code: ExclusionCode): VenueAssessment => ({
     ...base,
-    excluded: { code, reason: exclusionReason(code, { version, market, quote: quote && !quote.ok ? quote : null }) },
+    excluded: { code, reason: exclusionReason(code, { version, market, quote: quote && !quote.ok ? quote : null, peerMedianVolumeUsd }) },
   });
 
   // Token-level halts block every route.
@@ -195,8 +231,10 @@ export function rankVenues(assessments: VenueAssessment[]): { ranked: VenueAsses
 
 /** Consensus reference from venues that actually trade. */
 export function consensusPrice(markets: { version: StockVersion; market: VenueMarket }[], policy: RankPolicy): number | null {
+  // The reference must not be fed by a venue the same policy calls stale.
+  const floor = staleFloorUsd(policy, medianVolumeUsd(markets.map((m) => m.market.onchainVolume24hUsd)));
   const prices = markets
-    .filter((m) => m.market.perSharePriceUsd !== null && (m.market.onchainVolume24hUsd ?? 0) >= policy.minOnchainVolumeUsd)
+    .filter((m) => m.market.perSharePriceUsd !== null && (m.market.onchainVolume24hUsd ?? 0) >= floor)
     .map((m) => m.market.perSharePriceUsd as number)
     .sort((a, b) => a - b);
   if (prices.length === 0) return null;

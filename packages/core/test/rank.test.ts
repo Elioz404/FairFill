@@ -6,6 +6,7 @@ import {
   consensusPrice,
   costBps,
   explainDecision,
+  medianVolumeUsd,
   rankVenues,
 } from "../src/shared/rank";
 import type { Benchmark, SessionInfo, StockVersion, VenueMarket, VenueQuote } from "../src/shared/types";
@@ -63,6 +64,30 @@ describe("assessVenue — preview (displayed prices)", () => {
     const a = assessVenue({ ...base, version: xstock, market: market(211.72, 0), quote: null });
     expect(a.excluded?.code).toBe("NO_LIQUIDITY");
     expect(a.excluded?.reason).toContain("stale");
+  });
+
+  it("excludes a pool that clears the absolute floor but trades a rounding error next to its peers", () => {
+    // AAPL on 2026-09-17: the xStocks pool showed -119 bps on $1.2k of turnover while the other two
+    // versions did millions. The absolute floor alone let it through and the home card called it the fair fill.
+    const peerMedianVolumeUsd = 1_500_000;
+    const a = assessVenue({ ...base, version: xstock, market: market(211.72, 1_200), quote: null, peerMedianVolumeUsd });
+    expect(a.flags).toContain("stale-price");
+    expect(a.excluded?.code).toBe("NO_LIQUIDITY");
+    expect(a.excluded?.reason).toContain("against $1.5M at the other versions");
+  });
+
+  it("keeps the staleness rule relative: the same turnover passes when every version is small", () => {
+    const a = assessVenue({ ...base, version: xstock, market: market(211.72, 1_200), quote: null, peerMedianVolumeUsd: 4_000 });
+    expect(a.flags).not.toContain("stale-price");
+    expect(a.flags).toContain("thin-liquidity");
+    expect(a.excluded).toBeNull();
+  });
+
+  it("does not call a venue thin just because a sibling is deeper", () => {
+    // NVDAon does $461k a day next to NVDAB's $5.5M: relative staleness must not drag the depth badge with it.
+    const a = assessVenue({ ...base, version: ondo, market: market(219.62, 461_413), quote: null, peerMedianVolumeUsd: 461_413 });
+    expect(a.flags).not.toContain("thin-liquidity");
+    expect(a.flags).not.toContain("stale-price");
   });
 
   it("ranks liquid venues by premium to the reference", () => {
@@ -144,6 +169,22 @@ describe("helpers", () => {
       { version: xstock, market: market(211.72, 0) },
     ];
     expect(consensusPrice(markets, DEFAULT_POLICY)).toBeCloseTo((216.13 + 216.34) / 2);
+  });
+
+  it("keeps a stale venue out of the fallback reference", () => {
+    // AAPL on 2026-09-17: the $1.2k xStocks pool showed $332.33 while the two live versions agreed near $337.
+    const markets = [
+      { version: bstock, market: market(336.57, 17_310_414) },
+      { version: ondo, market: market(337.54, 119_394) },
+      { version: xstock, market: market(332.33, 1_240) },
+    ];
+    expect(consensusPrice(markets, DEFAULT_POLICY)).toBeCloseTo((336.57 + 337.54) / 2);
+  });
+
+  it("takes the peer median over the versions that report a turnover", () => {
+    expect(medianVolumeUsd([4_902_723, 85_744, 0])).toBe(85_744);
+    expect(medianVolumeUsd([4_902_723, null, 85_744, undefined])).toBe((4_902_723 + 85_744) / 2);
+    expect(medianVolumeUsd([null, undefined])).toBeNull();
   });
 
   it("explains the pick and every exclusion in plain words", () => {

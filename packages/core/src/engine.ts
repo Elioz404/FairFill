@@ -11,6 +11,7 @@ import {
   assessVenue,
   consensusPrice,
   explainDecision,
+  medianVolumeUsd,
   rankVenues,
   sessionWarnings,
 } from "./shared/rank";
@@ -375,8 +376,19 @@ export class FairFillEngine {
     if (!listing) return null;
     const data = await this.listingMarkets(listing);
     const benchmark = this.benchmark(data);
+    const peerMedian = medianVolumeUsd(data.markets.map((m) => m.market.onchainVolume24hUsd));
     const venues = data.markets.map(({ version, market }) =>
-      assessVenue({ version, market, quote: null, side: "buy", amountUsd: 100, tokens: null, benchmark, policy: this.config.policy }),
+      assessVenue({
+        version,
+        market,
+        quote: null,
+        side: "buy",
+        amountUsd: 100,
+        tokens: null,
+        benchmark,
+        policy: this.config.policy,
+        peerMedianVolumeUsd: peerMedian,
+      }),
     );
     return { mode: this.mode, fetchedAt: Date.now(), listing, benchmark, session: data.session, venues };
   }
@@ -441,6 +453,7 @@ export class FairFillEngine {
     const benchmark = this.benchmark(data);
     const wallet = order.wallet ?? this.config.quoteWallet;
     const live = this.liveApi;
+    const peerMedian = medianVolumeUsd(data.markets.map((m) => m.market.onchainVolume24hUsd));
 
     const assess = (quotes: Web3Api | null) =>
       mapLimit(data.markets, 3, async ({ version, market }): Promise<VenueAssessment> => {
@@ -467,6 +480,7 @@ export class FairFillEngine {
         tokens: order.tokens ?? null,
         benchmark,
         policy: this.config.policy,
+        peerMedianVolumeUsd: peerMedian,
       });
     });
     let assessments = await assess(live);
